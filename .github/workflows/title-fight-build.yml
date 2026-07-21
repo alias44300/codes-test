@@ -72,6 +72,37 @@ jobs:
               @Test fun step4() = Jalon6Step4Test.main(emptyArray())
           }
           KOTLIN
+          cat > project/app/src/test/kotlin/titlefight/app/DemoFightFactoryTest.kt <<'KOTLIN'
+          package titlefight.app
+
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertNotNull
+          import org.junit.Test
+          import titlefight.FightScreenPhase
+          import titlefight.PlayableBoxerDatabase
+          import titlefight.ui.compose.TacticalSelectionAction
+
+          class DemoFightFactoryTest {
+              private val red = PlayableBoxerDatabase.allProfiles[0]
+              private val blue = PlayableBoxerDatabase.allProfiles[1]
+
+              @Test fun demoStartsAtFirstTacticalPauseAndCanContinue() {
+                  val coordinator = DemoFightFactory.coordinator(red, blue, seed = 44L)
+                  val first = coordinator.start()
+                  assertEquals(FightScreenPhase.BETWEEN_ROUNDS, first.screenState.phase)
+                  assertNotNull(first.tacticalSelection)
+                  val window = requireNotNull(first.tacticalSelection).windowId
+                  val second = coordinator.dispatch(TacticalSelectionAction.Confirm(window))
+                  assertEquals(2, second.completedRounds)
+              }
+
+              @Test fun sameSeedProducesSameInitialScreen() {
+                  val first = DemoFightFactory.coordinator(red, blue, seed = 77L).start()
+                  val replay = DemoFightFactory.coordinator(red, blue, seed = 77L).start()
+                  assertEquals(first, replay)
+              }
+          }
+          KOTLIN
 
       - name: Set up Java 17
         uses: actions/setup-java@v4

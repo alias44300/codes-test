@@ -1,0 +1,83 @@
+name: Title Bout Manager Gameplay Build
+
+on:
+  push:
+    branches: [title-bout-manager-gameplay]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Extract project and apply manager upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf extracted
+          mkdir extracted
+          unzip -q title-bout-jalon7-step3-career-source.zip -d extracted
+          PROJECT_DIR="$(dirname "$(find extracted -name settings.gradle.kts -type f | head -n 1)")"
+          test -n "$PROJECT_DIR"
+          cat manager-patch/part-*.b64 | tr -d '\n' | base64 -d | gunzip > /tmp/title-bout-manager.patch
+          cd "$PROJECT_DIR"
+          git apply --check /tmp/title-bout-manager.patch
+          git apply --whitespace=nowarn /tmp/title-bout-manager.patch
+          find . -name build.gradle.kts -type f -print0 | xargs -0 sed -i 's/compileSdk = 37/compileSdk = 36/g; s/targetSdk = 37/targetSdk = 36/g'
+          chmod +x gradlew scripts/*.sh
+          printf '%s\n' "$PROJECT_DIR" > "$GITHUB_WORKSPACE/project-dir.txt"
+
+      - name: Validate roster, career and manager engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT_DIR="$(cat project-dir.txt)"
+          cd "$PROJECT_DIR"
+          ./scripts/test-jalon7-step3.sh
+          ./scripts/syntax-check-jalon7-step3-app.sh
+          ./scripts/syntax-check-jalon6-step4.sh
+
+      - name: Run Android tests and build APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT_DIR="$(cat project-dir.txt)"
+          cd "$PROJECT_DIR"
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/artifacts/TitleBout-manager-debug.apk"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/TitleBout-manager-debug.apk" | tee "$GITHUB_WORKSPACE/artifacts/TitleBout-manager-debug.apk.sha256"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/TitleBout-manager-debug.apk"
+
+      - name: Upload manager APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: title-bout-manager-apk
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 30

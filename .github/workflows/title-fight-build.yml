@@ -2,7 +2,7 @@ name: TITLE FIGHT APK build
 
 on:
   push:
-    branches: [main]
+    branches: [title-fight-build]
   workflow_dispatch:
 
 permissions:
@@ -64,6 +64,7 @@ jobs:
           set -o pipefail
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace \
+            :engine:compileKotlin \
             :app:testDebugUnitTest \
             :android-ui-compose:testDebugUnitTest \
             2>&1 | tee tests.log

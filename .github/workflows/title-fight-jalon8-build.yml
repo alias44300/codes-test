@@ -25,6 +25,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-37" "build-tools;36.0.0"
+
       - name: Reconstruct project and apply Jalon 8
         shell: bash
         run: |
@@ -37,24 +47,14 @@ jobs:
           cat jalon8-patch/part-*.b64 | tr -d '\n' | base64 -d | gunzip > /tmp/jalon8.patch
           cd "$PROJECT_DIR"
           git apply --whitespace=nowarn /tmp/jalon8.patch
+          chmod +x gradlew
           printf '%s\n' "$PROJECT_DIR" > "$GITHUB_WORKSPACE/project-dir.txt"
-
-      - name: Install Android SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-          PROJECT_DIR="$(cat project-dir.txt)"
-          chmod +x "$PROJECT_DIR/gradlew" "$PROJECT_DIR/scripts/bootstrap-android-sdk.sh"
-          cd "$PROJECT_DIR"
-          ./scripts/bootstrap-android-sdk.sh
 
       - name: Build APK
         shell: bash
         run: |
           set -euo pipefail
           PROJECT_DIR="$(cat project-dir.txt)"
-          export ANDROID_SDK_ROOT="$HOME/Android/Sdk"
-          export ANDROID_HOME="$ANDROID_SDK_ROOT"
           cd "$PROJECT_DIR"
           ./gradlew --no-daemon :app:assembleDebug
           mkdir -p "$GITHUB_WORKSPACE/artifacts"

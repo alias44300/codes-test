@@ -35,9 +35,12 @@ jobs:
           echo '6874b72e5a64a892a80e0c4cbd2aebebc873431f561958b9dfb91885f5f9ee08  source.tar.xz' | sha256sum --check --strict
           mkdir project
           tar -xJf source.tar.xz -C project
+          mkdir -p project/gradle
+          cp payload/libs.versions.toml project/gradle/libs.versions.toml
           test -f project/settings.gradle.kts
           test -f project/app/build.gradle.kts
           test -f project/engine/src/main/kotlin/titlefight/FightEngine.kt
+          test -f project/gradle/libs.versions.toml
           printf '\nandroid.builder.sdkDownload=true\n' >> project/gradle.properties
 
       - name: Set up Java 17

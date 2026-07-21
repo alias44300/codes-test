@@ -47,6 +47,7 @@ jobs:
           cat jalon8-patch/part-*.b64 | tr -d '\n' | base64 -d | gunzip > /tmp/jalon8.patch
           cd "$PROJECT_DIR"
           git apply --whitespace=nowarn /tmp/jalon8.patch
+          git apply --whitespace=nowarn "$GITHUB_WORKSPACE/jalon8-hotfix/imports.patch"
           find . -name build.gradle.kts -type f -print0 | xargs -0 sed -i 's/compileSdk = 37/compileSdk = 36/g; s/targetSdk = 37/targetSdk = 36/g'
           chmod +x gradlew
           printf '%s\n' "$PROJECT_DIR" > "$GITHUB_WORKSPACE/project-dir.txt"

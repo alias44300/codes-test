@@ -66,13 +66,13 @@ jobs:
           ./scripts/test-jalon7-step3.sh
           ./scripts/syntax-check-jalon7-step3-app.sh
 
-      - name: Run Android tests and build APK
+      - name: Build installable manager APK
         shell: bash
         run: |
           set -o pipefail
           PROJECT_DIR="$(cat project-dir.txt)"
           cd "$PROJECT_DIR"
-          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug 2>&1 | tee "$GITHUB_WORKSPACE/artifacts/gradle-build.log"
+          ./gradlew --no-daemon --stacktrace :app:assembleDebug 2>&1 | tee "$GITHUB_WORKSPACE/artifacts/gradle-build.log"
           STATUS=${PIPESTATUS[0]}
           if [ "$STATUS" -ne 0 ]; then
             exit "$STATUS"

@@ -1,0 +1,68 @@
+TITLE BOUT — RAPPORT DE CORRECTION DU MODE CARRIÈRE
+Version source : 0.2.0-career
+Date : 21 juillet 2026
+
+ERREUR CORRIGÉE
+La version précédente mélangeait Title Bout avec Knockout Cards. Elle demandait de choisir une légende déjà classée et importait des niveaux de rareté, coûts et données de collection. Ce fonctionnement n'était pas un véritable mode carrière.
+
+MODE CARRIÈRE DÉSORMAIS IMPLÉMENTÉ
+- création du boxeur du joueur ;
+- âge initial fixé à 18 ans ;
+- nom, surnom, pays, catégorie, garde et style configurables ;
+- statistiques de débutant adaptées au style choisi ;
+- aucun classement mondial au départ ;
+- aucune ceinture au départ ;
+- combats de développement ;
+- titre régional après progression ;
+- titre national ;
+- titre continental ;
+- entrée au classement mondial au rang 15 ;
+- progression vers le rang 3 ;
+- championnat WBA ;
+- unifications WBC, IBF et WBO ;
+- statut de champion incontesté ;
+- ceinture The Ring ;
+- défenses de titre et perte possible d'une ceinture ;
+- palmarès, KO, réputation et bourses ;
+- âge, semaines, fatigue et santé ;
+- entraînement par spécialité ;
+- changement de catégorie lorsqu'aucune ceinture n'est détenue ;
+- retraite.
+
+BASE HISTORIQUE
+- 321 adversaires officiels ;
+- BOX-001 à BOX-321 sans interruption ;
+- 15 catégories de poids ;
+- Harry Greb conservé en BOX-103 ;
+- les légendes servent d'adversaires historiques, pas de personnages de carrière déjà développés.
+
+ÉLÉMENTS SUPPRIMÉS
+- rareté ;
+- coût de carte ;
+- charisme de collection ;
+- recherche par rareté ;
+- sélection d'une légende comme boxeur de carrière.
+
+VALIDATIONS EXÉCUTÉES
+- ./scripts/test-jalon7-step2.sh : PASS ;
+- ./scripts/test-jalon7-step3.sh : PASS ;
+- python3 scripts/audit-jalon7-step3.py : PASS, 15 contrôles sur 15 ;
+- ./scripts/syntax-check-jalon7-step3-app.sh : PASS avec stubs locaux.
+
+LIMITES HONNÊTES
+- aucun SDK Android complet n'est disponible dans cette session ;
+- aucun nouvel APK n'a donc été compilé ou installé ;
+- le moteur interactif réel reste limité à trois rounds ;
+- les combats 4, 6, 8, 10 et 12 rounds doivent encore être raccordés au moteur ;
+- la sauvegarde persistante de la carrière doit encore être ajoutée.
+
+CONTENU PRINCIPAL MODIFIÉ
+- engine/src/main/kotlin/titlefight/CareerMode.kt
+- engine/src/main/kotlin/titlefight/OfficialRoster.kt
+- database/seed/official-roster-321-v2.json
+- app/src/main/kotlin/titlefight/app/CareerScreen.kt
+- app/src/main/kotlin/titlefight/app/MainActivity.kt
+- app/src/main/kotlin/titlefight/app/HomeScreen.kt
+- app/src/main/kotlin/titlefight/app/RosterSelectionScreen.kt
+- android-ui-compose/src/main/kotlin/titlefight/ui/compose/FightScreen.kt
+- docs/JALON7_STEP3.md

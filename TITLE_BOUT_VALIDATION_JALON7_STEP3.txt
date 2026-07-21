@@ -1,0 +1,19 @@
+TITLE BOUT — JALON 7 ÉTAPE 3 — VALIDATION
+
+Création d'un boxeur de 18 ans : PASS
+Départ sans classement mondial : PASS
+Départ sans ceinture : PASS
+Progression régional -> national -> continental -> mondial : PASS
+WBA, WBC, IBF, WBO et champion incontesté : PASS
+Entraînement, fatigue, santé, âge et bourses : PASS
+321 adversaires historiques : PASS
+15 catégories : PASS
+Rareté, coût de carte et charisme de collection absents : PASS
+Syntaxe Kotlin des écrans carrière, accueil et navigation : PASS avec stubs locaux
+
+LIMITES
+- Aucun assembleDebug n'a été exécuté dans cette session.
+- Aucun nouvel APK n'est fourni ou revendiqué.
+- Le moteur interactif reste limité à trois rounds.
+- Les durées professionnelles 4, 6, 8, 10 et 12 rounds sont décrites par la carrière mais pas encore exécutées par le moteur.
+- La sauvegarde persistante de carrière n'est pas encore branchée.

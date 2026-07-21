@@ -51,6 +51,7 @@ jobs:
           find . -name build.gradle.kts -type f -print0 | xargs -0 sed -i 's/compileSdk = 37/compileSdk = 36/g; s/targetSdk = 37/targetSdk = 36/g'
           chmod +x gradlew scripts/*.sh
           printf '%s\n' "$PROJECT_DIR" > "$GITHUB_WORKSPACE/project-dir.txt"
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
 
       - name: Validate roster, career and manager interface
         shell: bash
@@ -64,19 +65,23 @@ jobs:
       - name: Run Android tests and build APK
         shell: bash
         run: |
-          set -euo pipefail
+          set -o pipefail
           PROJECT_DIR="$(cat project-dir.txt)"
           cd "$PROJECT_DIR"
-          ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
-          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug 2>&1 | tee "$GITHUB_WORKSPACE/artifacts/gradle-build.log"
+          STATUS=${PIPESTATUS[0]}
+          if [ "$STATUS" -ne 0 ]; then
+            exit "$STATUS"
+          fi
           cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/artifacts/TitleBout-manager-debug.apk"
           sha256sum "$GITHUB_WORKSPACE/artifacts/TitleBout-manager-debug.apk" | tee "$GITHUB_WORKSPACE/artifacts/TitleBout-manager-debug.apk.sha256"
           unzip -t "$GITHUB_WORKSPACE/artifacts/TitleBout-manager-debug.apk"
 
-      - name: Upload manager APK
+      - name: Upload build outputs and logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: title-bout-manager-apk
+          name: title-bout-manager-build-output
           path: artifacts/*
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30

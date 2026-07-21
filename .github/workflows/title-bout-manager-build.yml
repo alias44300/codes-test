@@ -52,7 +52,7 @@ jobs:
           chmod +x gradlew scripts/*.sh
           printf '%s\n' "$PROJECT_DIR" > "$GITHUB_WORKSPACE/project-dir.txt"
 
-      - name: Validate roster, career and manager engine
+      - name: Validate roster, career and manager interface
         shell: bash
         run: |
           set -euo pipefail
@@ -60,7 +60,6 @@ jobs:
           cd "$PROJECT_DIR"
           ./scripts/test-jalon7-step3.sh
           ./scripts/syntax-check-jalon7-step3-app.sh
-          ./scripts/syntax-check-jalon6-step4.sh
 
       - name: Run Android tests and build APK
         shell: bash

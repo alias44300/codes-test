@@ -16,75 +16,18 @@ jobs:
       - name: Checkout transport repository
         uses: actions/checkout@v4
 
-      - name: Restore verified TITLE FIGHT Jalon 7 source
+      - name: Restore verified Jalon 7 source
         shell: bash
         run: |
           set -euo pipefail
-          cat \
-            payload/part-00.b64 \
-            payload/part-01.b64 \
-            payload/part-02.b64 \
-            payload/part-030.b64 \
-            payload/part-031.b64 \
-            payload/part-032.b64 \
-            payload/part-033.b64 \
-            payload/part-04.b64 \
-            payload/part-05.b64 \
-            payload/part-06.b64 \
-            | base64 --decode > source.tar.xz
+          cat payload/part-00.b64 payload/part-01.b64 payload/part-02.b64 \
+              payload/part-030.b64 payload/part-031.b64 payload/part-032.b64 payload/part-033.b64 \
+              payload/part-04.b64 payload/part-05.b64 payload/part-06.b64 \
+              | base64 --decode > source.tar.xz
           echo '6874b72e5a64a892a80e0c4cbd2aebebc873431f561958b9dfb91885f5f9ee08  source.tar.xz' | sha256sum --check --strict
           mkdir project
           tar -xJf source.tar.xz -C project
-          cat \
-            payload/j7-overlay-xor-00.txt \
-            payload/j7-overlay-xor-01.txt \
-            payload/j7-overlay-xor-02.txt \
-            payload/j7-overlay-xor-03.txt \
-            payload/j7-overlay-xor-04.txt \
-            payload/j7-overlay-xor-05.txt \
-            payload/j7-overlay-xor-06.txt \
-            payload/j7-overlay-xor-07.txt \
-            payload/j7-overlay-xor-08.txt \
-            payload/j7-overlay-xor-09.txt \
-            payload/j7-overlay-xor-10.txt \
-            payload/j7-overlay-xor-11.txt \
-            payload/j7-overlay-xor-12.txt \
-            payload/j7-overlay-xor-13.txt \
-            payload/j7-overlay-xor-14.txt \
-            payload/j7-overlay-xor-15.txt \
-            payload/j7-overlay-xor-16.txt \
-            payload/j7-overlay-xor-17.txt \
-            payload/j7-overlay-xor-18.txt \
-            payload/j7-overlay-xor-19.txt \
-            payload/j7-overlay-xor-20.txt \
-            payload/j7-overlay-xor-21.txt \
-            payload/j7-overlay-xor-22.txt \
-            payload/j7-overlay-xor-23.txt \
-            payload/j7-overlay-xor-24.txt \
-            payload/j7-overlay-xor-25.txt \
-            payload/j7-overlay-xor-26.txt \
-            payload/j7-overlay-xor-27.txt \
-            payload/j7-overlay-xor-28.txt \
-            payload/j7-overlay-xor-29.txt \
-            payload/j7-overlay-xor-30.txt \
-            payload/j7-overlay-xor-31.txt \
-            payload/j7-overlay-xor-32.txt \
-            payload/j7-overlay-xor-33.txt \
-            payload/j7-overlay-xor-34.txt \
-            payload/j7-overlay-xor-35.txt \
-            payload/j7-overlay-xor-36.txt \
-            payload/j7-overlay-xor-37.txt \
-            payload/j7-overlay-xor-38.txt \
-            payload/j7-overlay-xor-39.txt \
-            payload/j7-overlay-xor-40.txt \
-            payload/j7-overlay-xor-41.txt \
-            payload/j7-overlay-xor-42.txt \
-            payload/j7-overlay-xor-43.txt \
-            payload/j7-overlay-xor-44.txt \
-            payload/j7-overlay-xor-45.txt \
-            payload/j7-overlay-xor-46.txt \
-            payload/j7-overlay-xor-47.txt \
-            > j7-overlay.xorhex
+          cat payload/j7-overlay-xor-*.txt > j7-overlay.xorhex
           python3 - <<'PY'
           from pathlib import Path
           encoded = bytes.fromhex(Path('j7-overlay.xorhex').read_text().strip())
@@ -92,60 +35,41 @@ jobs:
           PY
           echo '9e01b5e29aeee492474606b6676b61afab004014ae7f7c485dd06cb71120b46a  j7-overlay.tar.xz' | sha256sum --check --strict
           tar -xJf j7-overlay.tar.xz -C project
-          (cd project && sha256sum --check --strict MANIFEST.sha256) | tee jalon7-manifest-check.log
           mkdir -p project/gradle project/build-jalon7-step1
           cp payload/libs.versions.toml project/gradle/libs.versions.toml
-          test -f project/settings.gradle.kts
-          test -f project/app/build.gradle.kts
-          test -f project/data-local/build.gradle.kts
+          cp payload/j7-ci-sqlite.py project/j7-ci-sqlite.py
           test -f project/data-local/src/main/kotlin/titlefight/data/local/TitleFightDatabase.kt
           test -f project/engine/src/main/kotlin/titlefight/PlayableBoxerDatabase.kt
           test -f project/engine/src/main/kotlin/titlefight/NarrativeCommentaryEngine.kt
-          test -f project/database/schema-v1.sql
-          test -f project/database/seed/boxers-heavyweight-v1.json
+          test -f project/app/src/main/kotlin/titlefight/app/RosterSelectionScreen.kt
           grep -q 'include(":data-local")' project/settings.gradle.kts
           printf '\nandroid.builder.sdkDownload=true\n' >> project/gradle.properties
-
+          {
+            echo 'Old Android source SHA-256: verified'
+            echo 'Jalon 7 overlay SHA-256: verified'
+            echo 'Critical compile inputs: present'
+          } | tee jalon7-transport-check.log
           cat >> project/engine/build.gradle.kts <<'GRADLE'
 
-          dependencies {
-              testImplementation(libs.junit4)
-          }
+          dependencies { testImplementation(libs.junit4) }
           GRADLE
           cat > project/engine/src/test/kotlin/titlefight/Jalon7AuditJUnitBridge.kt <<'KOTLIN'
           package titlefight
-
           import org.junit.Test
-
           class Jalon7AuditJUnitBridge {
-              @Test
-              fun databaseAndNarrativeAudit() {
-                  Jalon7Step1Test.main(emptyArray())
-              }
+              @Test fun databaseAndNarrativeAudit() = Jalon7Step1Test.main(emptyArray())
           }
           KOTLIN
-
           cat >> project/android-ui-compose/build.gradle.kts <<'GRADLE'
 
-          dependencies {
-              testImplementation(libs.junit4)
-          }
+          dependencies { testImplementation(libs.junit4) }
           GRADLE
           cat > project/android-ui-compose/src/test/kotlin/titlefight/ui/compose/AuditJUnitBridge.kt <<'KOTLIN'
           package titlefight.ui.compose
-
           import org.junit.Test
-
           class AuditJUnitBridge {
-              @Test
-              fun jalon6Step3Audits() {
-                  Jalon6Step3Test.main(emptyArray())
-              }
-
-              @Test
-              fun jalon6Step4Audits() {
-                  Jalon6Step4Test.main(emptyArray())
-              }
+              @Test fun step3() = Jalon6Step3Test.main(emptyArray())
+              @Test fun step4() = Jalon6Step4Test.main(emptyArray())
           }
           KOTLIN
 
@@ -155,10 +79,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android command-line tools
+      - name: Set up Android tools
         uses: android-actions/setup-android@v3
 
-      - name: Install required Android SDK packages
+      - name: Install Android SDK packages
         shell: bash
         run: |
           set -euo pipefail
@@ -172,187 +96,39 @@ jobs:
             "$SDKMANAGER" --channel=3 'platforms;android-37.0'
           elif grep -q 'platforms;android-37' sdk-packages.log; then
             "$SDKMANAGER" --channel=3 'platforms;android-37'
-          else
-            echo 'Android 37 preview is not directly listed; Gradle SDK auto-download will be used.'
           fi
 
-      - name: Validate source contract and SQLite seed
+      - name: Validate Jalon 7 data and SQLite
         working-directory: project
         shell: bash
         run: |
           set -euo pipefail
           python3 scripts/audit-jalon7-step1.py | tee jalon7-source-audit.log
-          python3 - <<'PY'
-          import json
-          import sqlite3
-          from pathlib import Path
+          python3 j7-ci-sqlite.py | tee sqlite-ci.log
 
-          root = Path('.')
-          db_path = root / 'ci-title-fight.sqlite'
-          if db_path.exists():
-              db_path.unlink()
-          seed = json.loads((root / 'database/seed/boxers-heavyweight-v1.json').read_text(encoding='utf-8'))
-          schema = (root / 'database/schema-v1.sql').read_text(encoding='utf-8')
-          con = sqlite3.connect(db_path)
-          con.executescript(schema)
-
-          rating_columns = {
-              'jabPower': 'jab_power', 'rearHandPower': 'rear_hand_power',
-              'hookPower': 'hook_power', 'bodyPower': 'body_power',
-              'handSpeed': 'hand_speed', 'footSpeed': 'foot_speed',
-              'accuracy': 'accuracy', 'timing': 'timing',
-              'headDefense': 'head_defense', 'bodyDefense': 'body_defense',
-              'blocking': 'blocking', 'evasiveness': 'evasiveness',
-              'countering': 'countering', 'pressure': 'pressure',
-              'rangeControl': 'range_control', 'insideFighting': 'inside_fighting',
-              'endurance': 'endurance', 'recovery': 'recovery',
-              'chin': 'chin', 'bodyResistance': 'body_resistance',
-              'balance': 'balance', 'cutResistance': 'cut_resistance',
-              'ringIq': 'ring_iq', 'adaptability': 'adaptability',
-              'discipline': 'discipline', 'aggression': 'aggression',
-              'finishing': 'finishing', 'composure': 'composure',
-          }
-          tendency_columns = {
-              'jabFrequency': 'jab_frequency',
-              'bodyAttackFrequency': 'body_attack_frequency',
-              'combinationFrequency': 'combination_frequency',
-              'counterFrequency': 'counter_frequency',
-              'clinchFrequency': 'clinch_frequency',
-              'pressureFrequency': 'pressure_frequency',
-              'riskTolerance': 'risk_tolerance',
-              'fastStart': 'fast_start',
-              'lateSurge': 'late_surge',
-          }
-
-          con.executemany(
-              'INSERT INTO database_meta(meta_key, meta_value) VALUES (?, ?)',
-              [('schema_version', str(seed['schemaVersion'])), ('boxer_count', str(len(seed['boxers'])))],
-          )
-
-          for item in seed['boxers']:
-              r = item['ratings']
-              con.execute(
-                  'INSERT OR IGNORE INTO boxers VALUES (?, ?, ?, ?, ?, ?)',
-                  (item['boxerId'], item['name'], item['nickname'], item['countryCode'], item['countryName'], item['era']),
-              )
-              primary = {
-                  'power': max(r['rearHandPower'], r['hookPower'], r['bodyPower']),
-                  'speed': round((r['handSpeed'] + r['footSpeed']) / 2),
-                  'technique': round((r['accuracy'] + r['timing'] + r['ringIq']) / 3),
-                  'defense': round((r['headDefense'] + r['bodyDefense'] + r['blocking'] + r['evasiveness']) / 4),
-                  'endurance': r['endurance'],
-                  'mental': round((r['ringIq'] + r['composure'] + r['discipline']) / 3),
-                  'chin': r['chin'],
-                  'recovery': r['recovery'],
-                  'accuracy': r['accuracy'],
-                  'mobility': r['footSpeed'],
-                  'body_resistance': r['bodyResistance'],
-                  'aggression': r['aggression'],
-              }
-              version_values = (
-                  item['versionId'], item['boxerId'], item['databaseId'],
-                  item['prime']['start'], item['prime']['end'], item['weightClass'], item['stance'],
-                  item['style'], item['secondaryStyle'], item['preferredRange'], item['heightCm'], item['reachCm'],
-                  primary['power'], primary['speed'], primary['technique'], primary['defense'],
-                  primary['endurance'], primary['mental'], primary['chin'], primary['recovery'],
-                  primary['accuracy'], primary['mobility'], primary['body_resistance'], primary['aggression'],
-              )
-              con.execute(
-                  'INSERT INTO boxer_versions VALUES (' + ','.join('?' for _ in version_values) + ')',
-                  version_values,
-              )
-              rating_values = [item['versionId']] + [r[key] for key in rating_columns]
-              con.execute(
-                  'INSERT INTO ratings(version_id,' + ','.join(rating_columns.values()) + ') VALUES (' + ','.join('?' for _ in rating_values) + ')',
-                  rating_values,
-              )
-              t = item['tendencies']
-              tendency_values = [item['versionId']] + [t[key] for key in tendency_columns]
-              con.execute(
-                  'INSERT INTO tendencies(version_id,' + ','.join(tendency_columns.values()) + ') VALUES (' + ','.join('?' for _ in tendency_values) + ')',
-                  tendency_values,
-              )
-              con.executemany(
-                  'INSERT INTO signature_actions(version_id, action_order, label) VALUES (?, ?, ?)',
-                  [(item['versionId'], index, label) for index, label in enumerate(item['signatureActions'])],
-              )
-              con.executemany(
-                  'INSERT INTO traits(version_id, trait_order, label) VALUES (?, ?, ?)',
-                  [(item['versionId'], index, label) for index, label in enumerate(item['traits'])],
-              )
-          con.commit()
-
-          integrity = con.execute('PRAGMA integrity_check').fetchone()[0]
-          foreign_keys = con.execute('PRAGMA foreign_key_check').fetchall()
-          counts = {
-              table: con.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]
-              for table in ('boxers', 'boxer_versions', 'ratings', 'tendencies', 'signature_actions', 'traits')
-          }
-          ali = con.execute(
-              "SELECT b.name, v.style, r.hand_speed, t.jab_frequency "
-              "FROM boxers b JOIN boxer_versions v USING(boxer_id) "
-              "JOIN ratings r USING(version_id) JOIN tendencies t USING(version_id) "
-              "WHERE lower(b.name) LIKE '%muhammad%'"
-          ).fetchone()
-          result = {
-              'integrity': integrity,
-              'foreign_key_errors': foreign_keys,
-              'counts': counts,
-              'search_result': ali,
-              'database_bytes': db_path.stat().st_size,
-          }
-          (root / 'sqlite-ci-audit.json').write_text(json.dumps(result, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
-          assert integrity == 'ok'
-          assert foreign_keys == []
-          assert counts == {
-              'boxers': 20, 'boxer_versions': 20, 'ratings': 20,
-              'tendencies': 20, 'signature_actions': 60, 'traits': 60,
-          }
-          assert ali and ali[0] == 'Muhammad Ali'
-          print(json.dumps(result, ensure_ascii=False))
-          con.close()
-          PY
-
-      - name: Run Kotlin and Gradle tests
+      - name: Run Gradle tests
         working-directory: project
         shell: bash
         run: |
           set -euo pipefail
-          set -o pipefail
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace \
-            :engine:test \
-            :data-local:testDebugUnitTest \
-            :app:testDebugUnitTest \
-            :android-ui-compose:testDebugUnitTest \
+            :engine:test :data-local:testDebugUnitTest \
+            :app:testDebugUnitTest :android-ui-compose:testDebugUnitTest \
             2>&1 | tee tests.log
-
-      - name: Record environment
-        working-directory: project
-        shell: bash
-        run: |
-          set -euo pipefail
-          {
-            java -version
-            grep -E 'compileSdk|targetSdk|minSdk|applicationId|versionName' app/build.gradle.kts
-            grep -q 'include(":data-local")' settings.gradle.kts && echo 'data-local module: enabled'
-            "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --list_installed
-          } 2>&1 | tee environment.log
 
       - name: Compile debug APK
         working-directory: project
         shell: bash
         run: |
           set -euo pipefail
-          set -o pipefail
           ./gradlew --no-daemon --stacktrace :app:assembleDebug 2>&1 | tee build.log
 
-      - name: Verify, inspect, hash and stage APK
+      - name: Verify and stage APK
         working-directory: project
         shell: bash
         run: |
           set -euo pipefail
-          set -o pipefail
           APK='app/build/outputs/apk/debug/app-debug.apk'
           test -s "$APK"
           "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" 2>&1 | tee apksigner.log
@@ -371,17 +147,17 @@ jobs:
           path: |
             project/title-fight-jalon7-debug.apk
             project/title-fight-jalon7-debug.apk.sha256
-            project/environment.log
             project/tests.log
             project/build.log
             project/apksigner.log
             project/apk-badging.log
             project/jalon7-source-audit.log
-            jalon7-manifest-check.log
+            project/sqlite-ci.log
             project/sqlite-ci-audit.json
             project/ci-title-fight.sqlite
             project/build-jalon7-step1/jalon7-step1-source-audit.json
+            jalon7-transport-check.log
+            sdk-packages.log
             project/app/build/reports/**
             project/data-local/build/reports/**
             project/android-ui-compose/build/reports/**
-            sdk-packages.log

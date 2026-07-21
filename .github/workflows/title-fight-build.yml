@@ -38,6 +38,7 @@ jobs:
           test -f project/settings.gradle.kts
           test -f project/app/build.gradle.kts
           test -f project/engine/src/main/kotlin/titlefight/FightEngine.kt
+          printf '\nandroid.builder.sdkDownload=true\n' >> project/gradle.properties
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -53,19 +54,18 @@ jobs:
         run: |
           set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager --channel=3 'platform-tools' 'platforms;android-37' 'build-tools;36.0.0'
-
-      - name: Record environment
-        working-directory: project
-        shell: bash
-        run: |
-          set -euo pipefail
-          {
-            java -version
-            grep '^VERSION=' gradlew || true
-            grep -E 'compileSdk|targetSdk|minSdk|applicationId' app/build.gradle.kts
-            sdkmanager --list_installed
-          } 2>&1 | tee environment.log
+          sdkmanager --channel=3 'cmdline-tools;latest' || true
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --list --channel=3 | tee sdk-packages.log
+          "$SDKMANAGER" 'platform-tools' 'build-tools;36.0.0'
+          if grep -q 'platforms;android-37.0' sdk-packages.log; then
+            "$SDKMANAGER" --channel=3 'platforms;android-37.0'
+          elif grep -q 'platforms;android-37' sdk-packages.log; then
+            "$SDKMANAGER" --channel=3 'platforms;android-37'
+          else
+            echo 'Android 37 preview is not directly listed; Gradle SDK auto-download will be used.'
+          fi
 
       - name: Run Kotlin and Gradle tests
         working-directory: project
@@ -79,6 +79,17 @@ jobs:
             :app:testDebugUnitTest \
             :android-ui-compose:testDebugUnitTest \
             2>&1 | tee tests.log
+
+      - name: Record environment
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            java -version
+            grep -E 'compileSdk|targetSdk|minSdk|applicationId' app/build.gradle.kts
+            "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --list_installed
+          } 2>&1 | tee environment.log
 
       - name: Compile debug APK
         working-directory: project
@@ -116,3 +127,4 @@ jobs:
             project/apksigner.log
             project/app/build/reports/**
             project/android-ui-compose/build/reports/**
+            sdk-packages.log

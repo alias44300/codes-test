@@ -48,6 +48,8 @@ jobs:
           cd "$PROJECT_DIR"
           git apply --check /tmp/title-bout-manager.patch
           git apply --whitespace=nowarn /tmp/title-bout-manager.patch
+          git apply --check "$GITHUB_WORKSPACE/manager-patch/demo-factory-hotfix.patch"
+          git apply --whitespace=nowarn "$GITHUB_WORKSPACE/manager-patch/demo-factory-hotfix.patch"
           find . -name build.gradle.kts -type f -print0 | xargs -0 sed -i 's/compileSdk = 37/compileSdk = 36/g; s/targetSdk = 37/targetSdk = 36/g'
           chmod +x gradlew scripts/*.sh
           printf '%s\n' "$PROJECT_DIR" > "$GITHUB_WORKSPACE/project-dir.txt"

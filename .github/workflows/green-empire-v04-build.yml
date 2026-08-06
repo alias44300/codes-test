@@ -6,6 +6,11 @@ on:
     paths:
       - 'green-empire-v04/**'
       - '.github/workflows/green-empire-v04-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'green-empire-v04/**'
+      - '.github/workflows/green-empire-v04-build.yml'
   workflow_dispatch:
 
 permissions:

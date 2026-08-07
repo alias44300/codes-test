@@ -84,6 +84,69 @@ jobs:
           test -f green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/project.godot
           test -f green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/export_presets.cfg
 
+      - name: Apply Godot 4.3 compatibility fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          project = Path('green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete')
+
+          def replace_once(path: Path, old: str, new: str) -> None:
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected exactly one match in {path} for {old!r}, got {count}')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          logistics = project / 'scripts/logistics/logistics_manager.gd'
+          replace_once(
+              logistics,
+              '    var seed_value := abs(seed_text.hash() + mode.hash())',
+              '    var seed_value: int = absi(seed_text.hash() + mode.hash())',
+          )
+
+          game = project / 'scripts/game_state.gd'
+          replacements = [
+              ('    var quality_factor := [0.0, 1.0, 1.28, 1.62, 2.05, 2.55][clampi(quality, 1, 5)]',
+               '    var quality_factor: float = float([0.0, 1.0, 1.28, 1.62, 2.05, 2.55][clampi(quality, 1, 5)])'),
+              ('    var event_discount := temporary_supplier_discount if GameClock.total_game_minutes < temporary_supplier_discount_until else 0.0',
+               '    var event_discount: float = temporary_supplier_discount if GameClock.total_game_minutes < temporary_supplier_discount_until else 0.0'),
+              ('    var buyer_discount := _effect_value("buyer") + _research_effect("supplier_discount") + event_discount',
+               '    var buyer_discount: float = _effect_value("buyer") + _research_effect("supplier_discount") + event_discount'),
+              ('    var unit_price := float(product.get("base_buy_per_kg", 1500.0)) * float(supplier.get("price_factor", 1.0)) * quality_factor * (1.0 - clampf(buyer_discount, 0.0, 0.25))',
+               '    var unit_price: float = float(product.get("base_buy_per_kg", 1500.0)) * float(supplier.get("price_factor", 1.0)) * quality_factor * (1.0 - clampf(buyer_discount, 0.0, 0.25))'),
+              ('    var purchase_cost := unit_price * kg',
+               '    var purchase_cost: float = unit_price * kg'),
+              ('    var transport_cost := float(logistics["transport_cost"])',
+               '    var transport_cost: float = float(logistics["transport_cost"])'),
+              ('    var total := purchase_cost + transport_cost',
+               '    var total: float = purchase_cost + transport_cost'),
+              ('    var q_factor := [0.0, 0.82, 1.0, 1.23, 1.52, 1.88][clampi(quality, 1, 5)]',
+               '    var q_factor: float = float([0.0, 0.82, 1.0, 1.23, 1.52, 1.88][clampi(quality, 1, 5)])'),
+              ('    var saturation_penalty := 1.0 - clampf(float(market.get("saturation", 0.0)), 0.0, 0.45)',
+               '    var saturation_penalty: float = 1.0 - clampf(float(market.get("saturation", 0.0)), 0.0, 0.45)'),
+              ('    var sales_bonus := _effect_value("sales") + _equipment_effect("sales") + _research_effect("market_bonus") + _effect_value("analyst") * 0.30',
+               '    var sales_bonus: float = _effect_value("sales") + _equipment_effect("sales") + _research_effect("market_bonus") + _effect_value("analyst") * 0.30'),
+              ('    var quality_management := _effect_value("quality") + _equipment_effect("quality") + _research_effect("quality_bonus")',
+               '    var quality_management: float = _effect_value("quality") + _equipment_effect("quality") + _research_effect("quality_bonus")'),
+              ('    var brand_bonus := clampf(brand_score / 500.0, 0.0, 0.12)',
+               '    var brand_bonus: float = clampf(brand_score / 500.0, 0.0, 0.12)'),
+              ('    var management_bonus := clampf(quality_management * 0.35, 0.0, 0.10)',
+               '    var management_bonus: float = clampf(quality_management * 0.35, 0.0, 0.10)'),
+              ('    var unit_price := float(product.get("base_sell_per_kg", 2200.0)) * q_factor * float(hub.get("market_demand", 1.0)) * float(market.get("demand_mod", 1.0)) * saturation_penalty * (1.0 + sales_bonus + brand_bonus + management_bonus)',
+               '    var unit_price: float = float(product.get("base_sell_per_kg", 2200.0)) * q_factor * float(hub.get("market_demand", 1.0)) * float(market.get("demand_mod", 1.0)) * saturation_penalty * (1.0 + sales_bonus + brand_bonus + management_bonus)'),
+          ]
+          for old, new in replacements:
+              replace_once(game, old, new)
+
+          preset = project / 'export_presets.cfg'
+          replace_once(preset, 'gradle_build/min_sdk="24"\n', '')
+
+          print('Applied Godot 4.3 compatibility fixes.')
+          PY
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

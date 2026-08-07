@@ -32,15 +32,42 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import base64, hashlib
+
           root = Path('green-empire-v10-safe/source_zip')
           parts = [root / f'chunk_{i:02d}.b64' for i in range(17)]
-          for p in parts:
+          expected_text_sha = [
+              '2622a597ab1b4aeaaf2c309708497fd0000b39d6926361f81683cf2854a8ec11',
+              '14c8da8add3217e10d07ffe32df0d752cb31a978f67735c6e008857dcff75f14',
+              '164932f304012447139ce2f4222b9eb74e690c66cf504b37c2d5af0fef093311',
+              'f8a3b76ec3f286216e9bc02b750356b9d4b8a71dbad6b2cd859872e9b3f6c4d8',
+              '9b82f1b73ca00713f08d7d2a45496ee926a9d4bb3372d9519d2f1f4742c54122',
+              '8166f9b316a6fd8dbfb83e95417eea94065585a75abe18b5069275447e86b1ca',
+              '70f7640770a990836fb7d981f7dc7a52ba3acbf3290504436b0f28d3fffff924',
+              'a23480d32d1cc9bb0b58083712f755a3b0e1ca559fa1e611285b58e789159973',
+              '4a110559ee664719fceaaeaa45f8263a903c4c8d898e8779e7dfc7380b4d4936',
+              '1daa319983a6294c3561673494368975c9e14bbe450b067f0e9867767c3b8499',
+              '296e09ca8a29a1c7e9dd3d9e0d4ae32e435e50fa2d3b5542b180d1fa99e2f191',
+              'c531afcd6664a0c296f9b7a993424349de02ace4577014e71f45bd287bf85bc1',
+              'fdfb45ff4fe86113caf6544a9ae31873d891aa4c585db17c740e514f8fc41864',
+              '7e1563ccf7773711a4e55999b46d829035d54f59f5ef8a58eb6821884998c4d4',
+              'e900325573786d26fd6982e901d64a290c6bf29db7dcb12c957b98bc6049250c',
+              '2aba61a7b35aec55b1682bba85c01803ea4d442a8ab2f91237157feb792ffe9e',
+              'ab9496ec74b88bdec441bc9c0495bd210941cbb7e3be8bae7eda09c195155e15',
+          ]
+          decoded = []
+          for i, p in enumerate(parts):
               if not p.is_file():
                   raise SystemExit(f'Missing source chunk: {p}')
-          data = b''.join(
-              base64.b64decode(p.read_text(encoding='utf-8').strip(), validate=True)
-              for p in parts
-          )
+              raw = p.read_bytes()
+              raw_sha = hashlib.sha256(raw).hexdigest()
+              print(f'{p.name}: bytes={len(raw)} sha256={raw_sha}')
+              if raw_sha != expected_text_sha[i]:
+                  raise SystemExit(
+                      f'Chunk mismatch {p.name}: expected {expected_text_sha[i]}, got {raw_sha}'
+                  )
+              decoded.append(base64.b64decode(raw.strip(), validate=True))
+
+          data = b''.join(decoded)
           digest = hashlib.sha256(data).hexdigest()
           expected = 'af16633f39da2e5124788b2ce429c67b60cd1000b2298f662c3bd603f1363e53'
           print('source sha256:', digest)

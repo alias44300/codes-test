@@ -1,0 +1,328 @@
+name: Green Empire v1.0 UI Fix APK
+
+on:
+  push:
+    branches: [green-empire-v1.0-apk-build]
+    paths:
+      - '.github/workflows/green-empire-v10-apk-ui-fix.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/green-empire-v10-apk-ui-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, hashlib
+          root=Path('green-empire-v10-safe/source_zip')
+          names=[f'chunk_{i:02d}.b64' for i in range(17)]
+          names[9]='chunk_09_fixed.b64'
+          data=b''.join(base64.b64decode((root/n).read_text().strip(),validate=True) for n in names)
+          got=hashlib.sha256(data).hexdigest(); want='af16633f39da2e5124788b2ce429c67b60cd1000b2298f662c3bd603f1363e53'
+          print('source sha256:',got)
+          if got!=want: raise SystemExit(f'SHA mismatch: {got}')
+          Path('green-empire-v10-safe/source.zip').write_bytes(data)
+          PY
+          unzip -t green-empire-v10-safe/source.zip
+          rm -rf green-empire-v10-safe/buildsrc && mkdir -p green-empire-v10-safe/buildsrc
+          unzip -q green-empire-v10-safe/source.zip -d green-empire-v10-safe/buildsrc
+
+      - name: Patch Godot 4.3, UI runtime and responsive map
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p=Path('green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete')
+
+          def one(path: Path, old: str, new: str) -> None:
+              t=path.read_text(encoding='utf-8')
+              c=t.count(old)
+              if c!=1:
+                  raise SystemExit(f'{path}: expected 1 match for {old!r}, got {c}')
+              path.write_text(t.replace(old,new,1),encoding='utf-8')
+
+          # Godot 4.3 strict typing compatibility already required by the previous successful build.
+          lm=p/'scripts/logistics/logistics_manager.gd'
+          one(lm,'    var seed_value := abs(seed_text.hash() + mode.hash())','    var seed_value: int = absi(seed_text.hash() + mode.hash())')
+          gs=p/'scripts/game_state.gd'
+          fixes=[
+          ('    var quality_factor := [0.0, 1.0, 1.28, 1.62, 2.05, 2.55][clampi(quality, 1, 5)]','    var quality_factor: float = float([0.0, 1.0, 1.28, 1.62, 2.05, 2.55][clampi(quality, 1, 5)])'),
+          ('    var event_discount := temporary_supplier_discount if GameClock.total_game_minutes < temporary_supplier_discount_until else 0.0','    var event_discount: float = temporary_supplier_discount if GameClock.total_game_minutes < temporary_supplier_discount_until else 0.0'),
+          ('    var buyer_discount := _effect_value("buyer") + _research_effect("supplier_discount") + event_discount','    var buyer_discount: float = _effect_value("buyer") + _research_effect("supplier_discount") + event_discount'),
+          ('    var unit_price := float(product.get("base_buy_per_kg", 1500.0)) * float(supplier.get("price_factor", 1.0)) * quality_factor * (1.0 - clampf(buyer_discount, 0.0, 0.25))','    var unit_price: float = float(product.get("base_buy_per_kg", 1500.0)) * float(supplier.get("price_factor", 1.0)) * quality_factor * (1.0 - clampf(buyer_discount, 0.0, 0.25))'),
+          ('    var purchase_cost := unit_price * kg','    var purchase_cost: float = unit_price * kg'),
+          ('    var transport_cost := float(logistics["transport_cost"])','    var transport_cost: float = float(logistics["transport_cost"])'),
+          ('    var total := purchase_cost + transport_cost','    var total: float = purchase_cost + transport_cost'),
+          ('    var q_factor := [0.0, 0.82, 1.0, 1.23, 1.52, 1.88][clampi(quality, 1, 5)]','    var q_factor: float = float([0.0, 0.82, 1.0, 1.23, 1.52, 1.88][clampi(quality, 1, 5)])'),
+          ('    var saturation_penalty := 1.0 - clampf(float(market.get("saturation", 0.0)), 0.0, 0.45)','    var saturation_penalty: float = 1.0 - clampf(float(market.get("saturation", 0.0)), 0.0, 0.45)'),
+          ('    var sales_bonus := _effect_value("sales") + _equipment_effect("sales") + _research_effect("market_bonus") + _effect_value("analyst") * 0.30','    var sales_bonus: float = _effect_value("sales") + _equipment_effect("sales") + _research_effect("market_bonus") + _effect_value("analyst") * 0.30'),
+          ('    var quality_management := _effect_value("quality") + _equipment_effect("quality") + _research_effect("quality_bonus")','    var quality_management: float = _effect_value("quality") + _equipment_effect("quality") + _research_effect("quality_bonus")'),
+          ('    var brand_bonus := clampf(brand_score / 500.0, 0.0, 0.12)','    var brand_bonus: float = clampf(brand_score / 500.0, 0.0, 0.12)'),
+          ('    var management_bonus := clampf(quality_management * 0.35, 0.0, 0.10)','    var management_bonus: float = clampf(quality_management * 0.35, 0.0, 0.10)'),
+          ('    var unit_price := float(product.get("base_sell_per_kg", 2200.0)) * q_factor * float(hub.get("market_demand", 1.0)) * float(market.get("demand_mod", 1.0)) * saturation_penalty * (1.0 + sales_bonus + brand_bonus + management_bonus)','    var unit_price: float = float(product.get("base_sell_per_kg", 2200.0)) * q_factor * float(hub.get("market_demand", 1.0)) * float(market.get("demand_mod", 1.0)) * saturation_penalty * (1.0 + sales_bonus + brand_bonus + management_bonus)')]
+          for a,b in fixes:
+              one(gs,a,b)
+
+          # Runtime UI defect: direct theme_override_constants.* access stops _build_ui().
+          app=p/'scripts/ui/app_controller.gd'
+          t=app.read_text(encoding='utf-8')
+          pattern=re.compile(r'(?m)^(\s*)([A-Za-z_][A-Za-z0-9_]*)\.theme_override_constants\.separation\s*=\s*(.+)$')
+          replacements=0
+          def fix_separation(m):
+              global replacements
+              replacements += 1
+              return f'{m.group(1)}{m.group(2)}.add_theme_constant_override("separation", {m.group(3)})'
+          t=pattern.sub(fix_separation,t)
+          if replacements != 21:
+              raise SystemExit(f'Expected 21 UI separation fixes, got {replacements}')
+          if 'theme_override_constants.' in t:
+              raise SystemExit('Invalid direct theme override access remains')
+          app.write_text(t,encoding='utf-8')
+
+          # World is 2400x1600 while the source map texture is 1500x1000. Fit it dynamically.
+          map_script=p/'scripts/map/dynamic_logistics_map.gd'
+          t=map_script.read_text(encoding='utf-8')
+          t=t.replace('@onready var camera: Camera2D = $Camera2D\n','@onready var camera: Camera2D = $Camera2D\n@onready var map_sprite: Sprite2D = $Map\n',1)
+          t=t.replace('func _ready() -> void:\n    camera.position = Vector2(MAP_WIDTH * 0.5, MAP_HEIGHT * 0.5)\n','func _ready() -> void:\n    _fit_map_texture_to_world()\n    camera.position = Vector2(MAP_WIDTH * 0.5, MAP_HEIGHT * 0.5)\n',1)
+          fit='''\nfunc _fit_map_texture_to_world() -> void:\n    if not is_instance_valid(map_sprite) or map_sprite.texture == null:\n        return\n    var texture_size: Vector2 = map_sprite.texture.get_size()\n    if texture_size.x <= 0.0 or texture_size.y <= 0.0:\n        return\n    map_sprite.scale = Vector2(MAP_WIDTH / texture_size.x, MAP_HEIGHT / texture_size.y)\n\n'''
+          marker='func _process(_delta: float) -> void:\n'
+          if marker not in t:
+              raise SystemExit('Map process marker not found')
+          t=t.replace(marker,fit+marker,1)
+          map_script.write_text(t,encoding='utf-8')
+
+          # Use the whole Android display instead of 16:9 letterboxing.
+          proj=p/'project.godot'
+          t=proj.read_text(encoding='utf-8')
+          if 'window/stretch/aspect=' in t:
+              t=re.sub(r'(?m)^window/stretch/aspect=.*$', 'window/stretch/aspect="expand"', t)
+          else:
+              t=t.replace('window/stretch/mode="canvas_items"\n','window/stretch/mode="canvas_items"\nwindow/stretch/aspect="expand"\n',1)
+          if 'textures/vram_compression/import_etc2_astc=true' not in t:
+              t=t.replace('[rendering]\n','[rendering]\ntextures/vram_compression/import_etc2_astc=true\n',1)
+          proj.write_text(t,encoding='utf-8')
+
+          # Background follows the expanded viewport instead of remaining fixed at 1280x720.
+          scene=p/'scenes/main.tscn'
+          t=scene.read_text(encoding='utf-8')
+          old='''[node name="Background" type="ColorRect" parent="."]\noffset_right = 1280.0\noffset_bottom = 720.0\ncolor = Color(0.027, 0.075, 0.067, 1)\nmouse_filter = 2\n'''
+          new='''[node name="Background" type="ColorRect" parent="."]\nlayout_mode = 1\nanchors_preset = 15\nanchor_right = 1.0\nanchor_bottom = 1.0\ngrow_horizontal = 2\ngrow_vertical = 2\ncolor = Color(0.027, 0.075, 0.067, 1)\nmouse_filter = 2\n'''
+          if old not in t:
+              raise SystemExit('Expected fixed Background block not found')
+          scene.write_text(t.replace(old,new,1),encoding='utf-8')
+
+          # Android export settings from the previously verified Final2 build.
+          ep=p/'export_presets.cfg'
+          t=ep.read_text(encoding='utf-8')
+          t=t.replace('gradle_build/min_sdk="24"','gradle_build/min_sdk=""')
+          t=t.replace('launcher_icons/adaptive_foreground_432x432="res://assets/ui/icon.png"','launcher_icons/adaptive_foreground_432x432=""')
+          t=t.replace('launcher_icons/adaptive_background_432x432="res://assets/ui/icon.png"','launcher_icons/adaptive_background_432x432=""')
+          t=t.replace('package/signed=true','package/signed=false')
+          ep.write_text(t,encoding='utf-8')
+
+          # Deterministic post-patch checks before invoking Godot.
+          assert 'window/stretch/aspect="expand"' in proj.read_text(encoding='utf-8')
+          assert '_fit_map_texture_to_world()' in map_script.read_text(encoding='utf-8')
+          assert 'theme_override_constants.' not in app.read_text(encoding='utf-8')
+          print('Applied 21 UI fixes, responsive map fit, expanded aspect and Android compatibility fixes.')
+          PY
+
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+
+      - name: Verify project model and static regressions
+        working-directory: green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pytest
+          python tools/verify_project.py
+          ! grep -R -n 'theme_override_constants\.' scripts
+          grep -q 'window/stretch/aspect="expand"' project.godot
+          grep -q '_fit_map_texture_to_world' scripts/map/dynamic_logistics_map.gd
+
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+
+      - name: Configure Android SDK and debug keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --sdk_root="$ANDROID_HOME" 'platform-tools' 'build-tools;34.0.0' 'build-tools;35.0.0' 'platforms;android-34' 'cmdline-tools;latest'
+          mkdir -p "$HOME/.android" "$HOME/.config/godot"
+          KEYSTORE="$HOME/.android/debug.keystore"
+          if [ ! -s "$KEYSTORE" ]; then
+            keytool -genkeypair -v -keystore "$KEYSTORE" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
+          fi
+          echo "KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "$KEYSTORE"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
+          test -x "$JAVA_HOME/bin/java"
+          test -x "$ANDROID_HOME/platform-tools/adb"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -s "$KEYSTORE"
+
+      - name: Install Godot 4.3 and templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot/bin" "$HOME/.local/share/godot/export_templates/4.3.stable"
+          curl -fL --retry 5 --retry-delay 2 -o "$RUNNER_TEMP/godot/godot.zip" 'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip'
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot/bin"
+          GODOT_BIN="$(find "$RUNNER_TEMP/godot/bin" -maxdepth 1 -type f -name 'Godot_v4.3-stable_linux*' | head -n1)"
+          chmod +x "$GODOT_BIN"; echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+          curl -fL --retry 5 --retry-delay 2 -o "$RUNNER_TEMP/godot/templates.tpz" 'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz'
+          mkdir -p "$RUNNER_TEMP/godot/t"; unzip -q "$RUNNER_TEMP/godot/templates.tpz" -d "$RUNNER_TEMP/godot/t"
+          cp -a "$RUNNER_TEMP/godot/t/templates/." "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          test -s "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
+          "$GODOT_BIN" --version
+
+      - name: Import project
+        shell: bash
+        run: |
+          set -o pipefail
+          P="$GITHUB_WORKSPACE/green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete"; mkdir -p "$P/build"
+          "$GODOT_BIN" --headless --editor --path "$P" --quit --verbose 2>&1 | tee "$P/build/GODOT_IMPORT.log"
+          exit ${PIPESTATUS[0]}
+
+      - name: Runtime UI and map smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$GITHUB_WORKSPACE/green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete"
+          cat > "$P/ci_ui_smoke.gd" <<'GDSCRIPT'
+          extends SceneTree
+
+          func _init() -> void:
+              call_deferred("_run")
+
+          func _run() -> void:
+              var packed: PackedScene = load("res://scenes/main.tscn")
+              if packed == null:
+                  printerr("SMOKE: main scene failed to load")
+                  quit(20)
+                  return
+              var scene: Node = packed.instantiate()
+              root.add_child(scene)
+              await process_frame
+              await process_frame
+
+              var map_sprite: Sprite2D = scene.get_node("MapWorld/Map") as Sprite2D
+              if map_sprite == null or map_sprite.texture == null:
+                  printerr("SMOKE: map sprite/texture missing")
+                  quit(21)
+                  return
+              var coverage: Vector2 = map_sprite.texture.get_size() * map_sprite.scale
+              print("SMOKE_MAP_TEXTURE=", map_sprite.texture.get_size(), " SCALE=", map_sprite.scale, " COVERAGE=", coverage)
+              if absf(coverage.x - 2400.0) > 0.5 or absf(coverage.y - 1600.0) > 0.5:
+                  printerr("SMOKE: map does not cover the 2400x1600 world")
+                  quit(22)
+                  return
+
+              var top_bar: PanelContainer = scene.get("top_bar") as PanelContainer
+              var nav_panel: PanelContainer = scene.get("nav_panel") as PanelContainer
+              var side_panel: PanelContainer = scene.get("map_side_panel") as PanelContainer
+              if top_bar == null or nav_panel == null or side_panel == null:
+                  printerr("SMOKE: generated UI panels missing")
+                  quit(23)
+                  return
+              if top_bar.get_child_count() == 0 or nav_panel.get_child_count() == 0 or side_panel.get_child_count() == 0:
+                  printerr("SMOKE: generated UI panels are empty")
+                  quit(24)
+                  return
+
+              var aspect: String = str(ProjectSettings.get_setting("display/window/stretch/aspect", ""))
+              print("SMOKE_UI_CHILDREN=", top_bar.get_child_count(), ",", nav_panel.get_child_count(), ",", side_panel.get_child_count(), " ASPECT=", aspect)
+              if aspect != "expand":
+                  printerr("SMOKE: stretch aspect is not expand")
+                  quit(25)
+                  return
+              print("SMOKE_UI_MAP_OK")
+              quit(0)
+          GDSCRIPT
+          set -o pipefail
+          "$GODOT_BIN" --headless --path "$P" --script res://ci_ui_smoke.gd 2>&1 | tee "$P/build/GODOT_RUNTIME_SMOKE.log"
+          status=${PIPESTATUS[0]}
+          test "$status" -eq 0
+          grep -q 'SMOKE_UI_MAP_OK' "$P/build/GODOT_RUNTIME_SMOKE.log"
+          if grep -q 'SCRIPT ERROR:' "$P/build/GODOT_RUNTIME_SMOKE.log"; then
+            echo 'Runtime script error detected.' >&2
+            exit 1
+          fi
+          rm -f "$P/ci_ui_smoke.gd"
+
+      - name: Export unsigned APK
+        shell: bash
+        run: |
+          set -o pipefail
+          P="$GITHUB_WORKSPACE/green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete"
+          U="$P/build/Green_Empire_Europe_v1.0-UI-FIX-unsigned.apk"
+          "$GODOT_BIN" --headless --verbose --path "$P" --export-debug 'Android' "$U" 2>&1 | tee "$P/build/GODOT_EXPORT.log"
+          exit ${PIPESTATUS[0]}
+
+      - name: Align, sign and verify final APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$GITHUB_WORKSPACE/green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete"
+          U="$P/build/Green_Empire_Europe_v1.0-UI-FIX-unsigned.apk"
+          A="$P/build/Green_Empire_Europe_v1.0-UI-FIX-aligned.apk"
+          F="$P/build/Green_Empire_Europe_v1.0-UI-FIX.apk"
+          test -s "$U"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f 4 "$U" "$A"
+          cp "$A" "$F"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$KEYSTORE" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android "$F"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$F" | tee "$P/build/APK_SIGNATURE.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$F" | tee "$P/build/ZIPALIGN.txt"
+          (cd "$P/build" && sha256sum Green_Empire_Europe_v1.0-UI-FIX.apk > Green_Empire_Europe_v1.0-UI-FIX.apk.sha256)
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Green-Empire-Europe-v1.0-UI-FIX-diagnostics
+          path: |
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/GODOT_IMPORT.log
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/GODOT_RUNTIME_SMOKE.log
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/GODOT_EXPORT.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload fixed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Green-Empire-Europe-v1.0-UI-FIX-APK
+          path: |
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/Green_Empire_Europe_v1.0-UI-FIX.apk
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/Green_Empire_Europe_v1.0-UI-FIX.apk.sha256
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/APK_SIGNATURE.txt
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/ZIPALIGN.txt
+          if-no-files-found: error
+          retention-days: 30

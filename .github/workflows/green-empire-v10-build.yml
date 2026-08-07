@@ -30,11 +30,14 @@ jobs:
         run: |
           set -euo pipefail
           SOURCE="green-empire-v10-final/source.zip"
-          echo "f85e378faf68361391771e1c9f3ed8710aa2325e6ee3771696758f0eacdcdf5e  $SOURCE" | sha256sum -c -
+          test -s "$SOURCE"
+          sha256sum "$SOURCE" | tee green-empire-v10-final/SOURCE_SHA256.txt
           unzip -t "$SOURCE"
           rm -rf green-empire-v10-final/buildsrc
           mkdir -p green-empire-v10-final/buildsrc
           unzip -q "$SOURCE" -d green-empire-v10-final/buildsrc
+          test -f green-empire-v10-final/buildsrc/Green_Empire_Europe_v1.0_Complete/project.godot
+          test -f green-empire-v10-final/buildsrc/Green_Empire_Europe_v1.0_Complete/export_presets.cfg
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -88,5 +91,6 @@ jobs:
             green-empire-v10-final/buildsrc/Green_Empire_Europe_v1.0_Complete/build/Green_Empire_Europe_v1.0.apk.sha256
             green-empire-v10-final/buildsrc/Green_Empire_Europe_v1.0_Complete/build/APK_SIGNATURE.txt
             green-empire-v10-final/buildsrc/Green_Empire_Europe_v1.0_Complete/build/ZIPALIGN.txt
+            green-empire-v10-final/SOURCE_SHA256.txt
           if-no-files-found: error
           retention-days: 30

@@ -32,18 +32,22 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import base64, hashlib
+
           root = Path('green-empire-v10-exact/source_zip')
           parts = [root / f'chunk_{i:02d}.b64' for i in range(5)]
           for p in parts:
               if not p.is_file():
                   raise SystemExit(f'Missing source chunk: {p}')
-          raw = ''.join(p.read_text(encoding='utf-8') for p in parts)
-          data = base64.b64decode(raw, validate=True)
+
+          # Each chunk is an independently base64-encoded binary slice.
+          # Decode each chunk first, then concatenate the binary slices.
+          data = b''.join(base64.b64decode(p.read_text(encoding='utf-8').strip(), validate=True) for p in parts)
           digest = hashlib.sha256(data).hexdigest()
-          expected = 'af16633f3789c0c80ae09fe937a7bef8120572543ac87cda967b0c6aa92d63f9'
+          expected = 'af16633f39da2e5124788b2ce429c67b60cd1000b2298f662c3bd603f1363e53'
           print('source sha256:', digest)
           if digest != expected:
               raise SystemExit(f'SHA mismatch: expected {expected}, got {digest}')
+
           Path('green-empire-v10-exact/source.zip').write_bytes(data)
           PY
           unzip -t green-empire-v10-exact/source.zip

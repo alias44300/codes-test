@@ -5,6 +5,10 @@ on:
     branches: [green-empire-v1.0-apk-build]
     paths:
       - '.github/workflows/green-empire-source-diagnostic.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/green-empire-source-diagnostic.yml'
   workflow_dispatch:
 
 permissions:

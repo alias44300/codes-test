@@ -1,0 +1,186 @@
+name: Green Empire v1.0 Live Logistics V2 APK
+
+on:
+  push:
+    branches: [green-empire-v1.0-apk-build]
+    paths:
+      - 'green-empire-v10-motion-patch/**'
+      - '.github/workflows/green-empire-v10-live-logistics-v2.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'green-empire-v10-motion-patch/**'
+      - '.github/workflows/green-empire-v10-live-logistics-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, hashlib
+          root=Path('green-empire-v10-safe/source_zip')
+          names=[f'chunk_{i:02d}.b64' for i in range(17)]
+          names[9]='chunk_09_fixed.b64'
+          data=b''.join(base64.b64decode((root/n).read_text().strip(),validate=True) for n in names)
+          got=hashlib.sha256(data).hexdigest(); want='af16633f39da2e5124788b2ce429c67b60cd1000b2298f662c3bd603f1363e53'
+          print('source sha256:',got)
+          if got!=want: raise SystemExit(f'SHA mismatch: {got}')
+          Path('green-empire-v10-safe/source.zip').write_bytes(data)
+          PY
+          unzip -t green-empire-v10-safe/source.zip
+          rm -rf green-empire-v10-safe/buildsrc && mkdir -p green-empire-v10-safe/buildsrc
+          unzip -q green-empire-v10-safe/source.zip -d green-empire-v10-safe/buildsrc
+
+      - name: Apply live logistics patch and runtime v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 green-empire-v10-motion-patch/apply_motion_patch.py
+          P='green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete'
+          cp green-empire-v10-motion-patch/runtime_logistics_motion_smoke_v2.gd "$P/tools/runtime_logistics_motion_smoke.gd"
+          grep -q 'ROAD_CONTROL_CHANCE' "$P/scripts/logistics/logistics_manager.gd"
+          grep -q '_draw_route_motion_markers' "$P/scripts/map/dynamic_logistics_map.gd"
+          grep -q 'CONTRÔLE ROUTIER' "$P/scripts/ui/app_controller.gd"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify static project
+        working-directory: green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pytest
+          python tools/verify_project.py
+          ! grep -R -n 'theme_override_constants\.' scripts
+          grep -q 'window/stretch/aspect="expand"' project.godot
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Configure Android environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --sdk_root="$ANDROID_HOME" 'platform-tools' 'build-tools;34.0.0' 'build-tools;35.0.0' 'platforms;android-34' 'cmdline-tools;latest'
+          mkdir -p "$HOME/.android" "$HOME/.config/godot"
+          KEYSTORE="$HOME/.android/debug.keystore"
+          if [ ! -s "$KEYSTORE" ]; then
+            keytool -genkeypair -v -keystore "$KEYSTORE" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
+          fi
+          echo "KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "$KEYSTORE"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -s "$KEYSTORE"
+
+      - name: Install Godot 4.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot/bin" "$HOME/.local/share/godot/export_templates/4.3.stable"
+          curl -fL --retry 5 --retry-delay 2 -o "$RUNNER_TEMP/godot/godot.zip" 'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip'
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot/bin"
+          GODOT_BIN="$(find "$RUNNER_TEMP/godot/bin" -maxdepth 1 -type f -name 'Godot_v4.3-stable_linux*' | head -n1)"
+          test -n "$GODOT_BIN"
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+          curl -fL --retry 5 --retry-delay 2 -o "$RUNNER_TEMP/godot/templates.tpz" 'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz'
+          mkdir -p "$RUNNER_TEMP/godot/t"
+          unzip -q "$RUNNER_TEMP/godot/templates.tpz" -d "$RUNNER_TEMP/godot/t"
+          cp -a "$RUNNER_TEMP/godot/t/templates/." "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          test -s "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
+          "$GODOT_BIN" --version
+
+      - name: Import project
+        shell: bash
+        run: |
+          set -o pipefail
+          P="$GITHUB_WORKSPACE/green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete"
+          mkdir -p "$P/build"
+          "$GODOT_BIN" --headless --editor --path "$P" --quit --verbose 2>&1 | tee "$P/build/GODOT_IMPORT.log"
+          exit ${PIPESTATUS[0]}
+
+      - name: Runtime movement stop control resume test
+        shell: bash
+        run: |
+          set -o pipefail
+          P="$GITHUB_WORKSPACE/green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete"
+          "$GODOT_BIN" --headless --path "$P" --script res://tools/runtime_logistics_motion_smoke.gd 2>&1 | tee "$P/build/LIVE_LOGISTICS_SMOKE.txt"
+          status=${PIPESTATUS[0]}
+          grep -q 'SMOKE_LIVE_LOGISTICS_OK' "$P/build/LIVE_LOGISTICS_SMOKE.txt" || exit 1
+          exit "$status"
+
+      - name: Export unsigned APK
+        shell: bash
+        run: |
+          set -o pipefail
+          P="$GITHUB_WORKSPACE/green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete"
+          U="$P/build/Green_Empire_Europe_v1.0-LIVE-LOGISTICS-V2-unsigned.apk"
+          "$GODOT_BIN" --headless --verbose --path "$P" --export-debug 'Android' "$U" 2>&1 | tee "$P/build/GODOT_EXPORT.log"
+          exit ${PIPESTATUS[0]}
+
+      - name: Align sign verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          P="$GITHUB_WORKSPACE/green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete"
+          U="$P/build/Green_Empire_Europe_v1.0-LIVE-LOGISTICS-V2-unsigned.apk"
+          A="$P/build/Green_Empire_Europe_v1.0-LIVE-LOGISTICS-V2-aligned.apk"
+          F="$P/build/Green_Empire_Europe_v1.0-LIVE-LOGISTICS-V2.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f 4 "$U" "$A"
+          cp "$A" "$F"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$KEYSTORE" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android "$F"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$F" | tee "$P/build/APK_SIGNATURE.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$F" | tee "$P/build/ZIPALIGN.txt"
+          (cd "$P/build" && sha256sum Green_Empire_Europe_v1.0-LIVE-LOGISTICS-V2.apk > Green_Empire_Europe_v1.0-LIVE-LOGISTICS-V2.apk.sha256)
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Green-Empire-Europe-v1.0-LIVE-LOGISTICS-V2-diagnostics
+          path: |
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/GODOT_IMPORT.log
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/LIVE_LOGISTICS_SMOKE.txt
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/GODOT_EXPORT.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Green-Empire-Europe-v1.0-LIVE-LOGISTICS-V2-APK
+          path: |
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/Green_Empire_Europe_v1.0-LIVE-LOGISTICS-V2.apk
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/Green_Empire_Europe_v1.0-LIVE-LOGISTICS-V2.apk.sha256
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/APK_SIGNATURE.txt
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/ZIPALIGN.txt
+          if-no-files-found: error
+          retention-days: 30

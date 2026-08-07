@@ -159,10 +159,12 @@ func _on_game_time_changed(now: float) -> void:
         if status == "road_check" or status == "logistics_delay":
             var event_until := float(shipment.get("event_until_game_minutes", now))
             if now >= event_until:
+                var previous_title := String(shipment.get("event_title", "Arrêt"))
                 shipment["status"] = "in_transit"
                 shipment["event_type"] = ""
                 shipment["event_title"] = ""
                 shipment["event_detail"] = ""
+                shipment_event.emit(String(shipment_id), "resume", "Reprise du trajet", "%s terminé. Le véhicule repart." % previous_title)
                 shipment_updated.emit(String(shipment_id))
                 shipments_changed.emit()
                 var movable_after_pause := maxf(0.0, now - maxf(last_update, event_until))
@@ -355,26 +357,10 @@ func _deserialize_shipment(source: Dictionary) -> Dictionary:
     return row
 
 func _build_dynamic_route(origin: Dictionary, destination: Dictionary, shipment_id: String, mode: String) -> Array[Vector2]:
+    # Strategic-map route only: stylized geometry, not a real-world operational route.
     var a := Vector2(float(origin["lat"]), float(origin["lon"]))
     var b := Vector2(float(destination["lat"]), float(destination["lon"]))
-    var anchors: Array[Vector2] = [a]
-    var origin_africa := float(origin["lat"]) < 38.0
-    var destination_africa := float(destination["lat"]) < 38.0
-    if origin_africa != destination_africa and mode == "road":
-        if origin_africa:
-            anchors.append(Vector2(35.95, -5.62))
-            anchors.append(Vector2(36.12, -5.35))
-        else:
-            anchors.append(Vector2(36.12, -5.35))
-            anchors.append(Vector2(35.95, -5.62))
-    anchors.append(b)
-    var route: Array[Vector2] = []
-    for segment_index in range(anchors.size() - 1):
-        var segment := _bezier_segment(anchors[segment_index], anchors[segment_index + 1], shipment_id + str(segment_index), mode, 36)
-        if segment_index > 0 and not segment.is_empty():
-            segment.pop_front()
-        route.append_array(segment)
-    return route
+    return _bezier_segment(a, b, shipment_id, mode, 48)
 
 func _bezier_segment(a: Vector2, b: Vector2, seed_text: String, mode: String, steps: int) -> Array[Vector2]:
     var points: Array[Vector2] = []

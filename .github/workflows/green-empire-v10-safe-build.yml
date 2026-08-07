@@ -104,7 +104,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Configure Godot Android environment
+      - name: Configure Android environment
         shell: bash
         run: |
           set -euo pipefail
@@ -142,24 +142,66 @@ jobs:
           export/android/debug_keystore_pass = "android"
           EOF
 
-          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$KEYSTORE" >> "$GITHUB_ENV"
-          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
-          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
           test -x "$JAVA_HOME/bin/java"
           test -x "$ANDROID_HOME/platform-tools/adb"
           test -s "$KEYSTORE"
-          cat "$HOME/.config/godot/editor_settings-4.tres"
+
+      - name: Install Godot 4.3 and export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" "$HOME/.local/share/godot/export_templates/4.3.stable"
+          curl -fL --retry 5 --retry-delay 2 \
+            -o "$RUNNER_TEMP/godot/godot.zip" \
+            'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip'
+          unzip -q "$RUNNER_TEMP/godot/godot.zip" -d "$RUNNER_TEMP/godot/bin"
+          GODOT_BIN="$(find "$RUNNER_TEMP/godot/bin" -maxdepth 1 -type f -name 'Godot_v4.3-stable_linux*' | head -n1)"
+          test -n "$GODOT_BIN"
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+
+          curl -fL --retry 5 --retry-delay 2 \
+            -o "$RUNNER_TEMP/godot/templates.tpz" \
+            'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz'
+          rm -rf "$RUNNER_TEMP/godot/templates-unpacked"
+          mkdir -p "$RUNNER_TEMP/godot/templates-unpacked"
+          unzip -q "$RUNNER_TEMP/godot/templates.tpz" -d "$RUNNER_TEMP/godot/templates-unpacked"
+          cp -a "$RUNNER_TEMP/godot/templates-unpacked/templates/." "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          test -s "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
+          "$GODOT_BIN" --version
+
+      - name: Import project with Godot 4.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT="$GITHUB_WORKSPACE/green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete"
+          mkdir -p "$PROJECT/build"
+          "$GODOT_BIN" --headless --editor --path "$PROJECT" --quit --verbose \
+            2>&1 | tee "$PROJECT/build/GODOT_IMPORT.log"
 
       - name: Export Android debug APK with Godot 4.3
-        uses: firebelley/godot-export@v8.0.0
+        shell: bash
+        run: |
+          set -o pipefail
+          PROJECT="$GITHUB_WORKSPACE/green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete"
+          APK="$PROJECT/build/Green_Empire_Europe_v1.0.apk"
+          "$GODOT_BIN" --headless --verbose --path "$PROJECT" \
+            --export-debug 'Android' "$APK" \
+            2>&1 | tee "$PROJECT/build/GODOT_EXPORT.log"
+          status=${PIPESTATUS[0]}
+          echo "Godot export exit code: $status"
+          exit "$status"
+
+      - name: Upload Godot diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          godot_executable_download_url: https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
-          godot_export_templates_download_url: https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
-          relative_project_path: green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete
-          presets_to_export: Android
-          export_debug: true
-          use_preset_export_path: true
-          verbose: true
+          name: Green-Empire-Europe-v1.0-Godot-diagnostics
+          path: |
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/GODOT_IMPORT.log
+            green-empire-v10-safe/buildsrc/Green_Empire_Europe_v1.0_Complete/build/GODOT_EXPORT.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Verify APK
         shell: bash

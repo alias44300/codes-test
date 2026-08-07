@@ -1,0 +1,30 @@
+diff --git a/app/src/test/kotlin/titlefight/app/DemoFightFactoryTest.kt b/app/src/test/kotlin/titlefight/app/DemoFightFactoryTest.kt
+index b047fad..98a5905 100644
+--- a/app/src/test/kotlin/titlefight/app/DemoFightFactoryTest.kt
++++ b/app/src/test/kotlin/titlefight/app/DemoFightFactoryTest.kt
+@@ -4,12 +4,13 @@ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertNotNull
+ import org.junit.Test
+ import titlefight.FightScreenPhase
++import titlefight.OfficialRoster
+ import titlefight.ui.compose.TacticalSelectionAction
+ 
+ class DemoFightFactoryTest {
+     @Test
+     fun demoStartsAtFirstTacticalPauseAndCanContinue() {
+-        val coordinator = DemoFightFactory.coordinator(seed = 44L)
++        val coordinator = DemoFightFactory.coordinator(red = OfficialRoster.cards[0].profile, blue = OfficialRoster.cards[1].profile, seed = 44L)
+         val first = coordinator.start()
+         assertEquals(FightScreenPhase.BETWEEN_ROUNDS, first.screenState.phase)
+         assertNotNull(first.tacticalSelection)
+@@ -21,8 +22,8 @@ class DemoFightFactoryTest {
+ 
+     @Test
+     fun sameSeedProducesSameInitialScreen() {
+-        val first = DemoFightFactory.coordinator(seed = 77L).start()
+-        val replay = DemoFightFactory.coordinator(seed = 77L).start()
++        val first = DemoFightFactory.coordinator(red = OfficialRoster.cards[0].profile, blue = OfficialRoster.cards[1].profile, seed = 77L).start()
++        val replay = DemoFightFactory.coordinator(red = OfficialRoster.cards[0].profile, blue = OfficialRoster.cards[1].profile, seed = 77L).start()
+         assertEquals(first, replay)
+     }
+ }

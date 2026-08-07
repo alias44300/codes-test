@@ -25,39 +25,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Reconstruct and verify source
+      - name: Verify and extract source
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import base64, hashlib, re
-          root = Path('green-empire-v10-final/source_zip')
-          parts = sorted(root.glob('part_*.b64'))
-          expected_names = [
-              'part_00.b64','part_01.b64','part_02.b64','part_03.b64','part_04.b64','part_05.b64',
-              'part_06_07.b64','part_08_09.b64','part_10_11.b64','part_12_13.b64',
-              'part_14_15.b64','part_16_17.b64','part_18_19.b64','part_20_21.b64',
-              'part_22_23.b64','part_24_25.b64','part_26_27.b64'
-          ]
-          names = [p.name for p in parts]
-          if names != expected_names:
-              raise SystemExit(f'Unexpected source parts: {names}')
-          raw = ''.join(p.read_text(encoding='utf-8') for p in parts)
-          clean = re.sub(r'[^A-Za-z0-9+/=]', '', raw)
-          data = base64.b64decode(clean, validate=True)
-          digest = hashlib.sha256(data).hexdigest()
-          expected = 'f85e378faf68361391771e1c9f3ed8710aa2325e6ee3771696758f0eacdcdf5e'
-          print('source sha256:', digest)
-          if digest != expected:
-              raise SystemExit(f'SHA mismatch: expected {expected}, got {digest}')
-          archive = Path('green-empire-v10-final/source.zip')
-          archive.write_bytes(data)
-          PY
-          unzip -t green-empire-v10-final/source.zip
+          SOURCE="green-empire-v10-final/source.zip"
+          echo "f85e378faf68361391771e1c9f3ed8710aa2325e6ee3771696758f0eacdcdf5e  $SOURCE" | sha256sum -c -
+          unzip -t "$SOURCE"
           rm -rf green-empire-v10-final/buildsrc
           mkdir -p green-empire-v10-final/buildsrc
-          unzip -q green-empire-v10-final/source.zip -d green-empire-v10-final/buildsrc
+          unzip -q "$SOURCE" -d green-empire-v10-final/buildsrc
 
       - name: Set up Python
         uses: actions/setup-python@v5

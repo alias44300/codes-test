@@ -1,0 +1,194 @@
+name: TITLE FIGHT Jalon 7 APK build
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout transport repository
+        uses: actions/checkout@v4
+
+      - name: Restore verified Jalon 7 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat payload/part-00.b64 payload/part-01.b64 payload/part-02.b64 \
+              payload/part-030.b64 payload/part-031.b64 payload/part-032.b64 payload/part-033.b64 \
+              payload/part-04.b64 payload/part-05.b64 payload/part-06.b64 \
+              | base64 --decode > source.tar.xz
+          echo '6874b72e5a64a892a80e0c4cbd2aebebc873431f561958b9dfb91885f5f9ee08  source.tar.xz' | sha256sum --check --strict
+          mkdir project
+          tar -xJf source.tar.xz -C project
+          cat payload/j7-overlay-xor-*.txt > j7-overlay.xorhex
+          python3 - <<'PY'
+          from pathlib import Path
+          encoded = bytes.fromhex(Path('j7-overlay.xorhex').read_text().strip())
+          Path('j7-overlay.tar.xz').write_bytes(bytes(value ^ 0xA5 for value in encoded))
+          PY
+          echo '9e01b5e29aeee492474606b6676b61afab004014ae7f7c485dd06cb71120b46a  j7-overlay.tar.xz' | sha256sum --check --strict
+          tar -xJf j7-overlay.tar.xz -C project
+          mkdir -p project/gradle project/build-jalon7-step1
+          cp payload/libs.versions.toml project/gradle/libs.versions.toml
+          cp payload/j7-ci-sqlite.py project/j7-ci-sqlite.py
+          test -f project/data-local/src/main/kotlin/titlefight/data/local/TitleFightDatabase.kt
+          test -f project/engine/src/main/kotlin/titlefight/PlayableBoxerDatabase.kt
+          test -f project/engine/src/main/kotlin/titlefight/NarrativeCommentaryEngine.kt
+          test -f project/app/src/main/kotlin/titlefight/app/RosterSelectionScreen.kt
+          grep -q 'include(":data-local")' project/settings.gradle.kts
+          printf '\nandroid.builder.sdkDownload=true\n' >> project/gradle.properties
+          {
+            echo 'Old Android source SHA-256: verified'
+            echo 'Jalon 7 overlay SHA-256: verified'
+            echo 'Critical compile inputs: present'
+          } | tee jalon7-transport-check.log
+          cat >> project/engine/build.gradle.kts <<'GRADLE'
+
+          dependencies { testImplementation(libs.junit4) }
+          GRADLE
+          cat > project/engine/src/test/kotlin/titlefight/Jalon7AuditJUnitBridge.kt <<'KOTLIN'
+          package titlefight
+          import org.junit.Test
+          class Jalon7AuditJUnitBridge {
+              @Test fun databaseAndNarrativeAudit() = Jalon7Step1Test.main(emptyArray())
+          }
+          KOTLIN
+          cat >> project/android-ui-compose/build.gradle.kts <<'GRADLE'
+
+          dependencies { testImplementation(libs.junit4) }
+          GRADLE
+          cat > project/android-ui-compose/src/test/kotlin/titlefight/ui/compose/AuditJUnitBridge.kt <<'KOTLIN'
+          package titlefight.ui.compose
+          import org.junit.Test
+          class AuditJUnitBridge {
+              @Test fun step3() = Jalon6Step3Test.main(emptyArray())
+              @Test fun step4() = Jalon6Step4Test.main(emptyArray())
+          }
+          KOTLIN
+          cat > project/app/src/test/kotlin/titlefight/app/DemoFightFactoryTest.kt <<'KOTLIN'
+          package titlefight.app
+
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertNotNull
+          import org.junit.Test
+          import titlefight.FightScreenPhase
+          import titlefight.PlayableBoxerDatabase
+          import titlefight.ui.compose.TacticalSelectionAction
+
+          class DemoFightFactoryTest {
+              private val red = PlayableBoxerDatabase.allProfiles[0]
+              private val blue = PlayableBoxerDatabase.allProfiles[1]
+
+              @Test fun demoStartsAtFirstTacticalPauseAndCanContinue() {
+                  val coordinator = DemoFightFactory.coordinator(red, blue, seed = 44L)
+                  val first = coordinator.start()
+                  assertEquals(FightScreenPhase.BETWEEN_ROUNDS, first.screenState.phase)
+                  assertNotNull(first.tacticalSelection)
+                  val window = requireNotNull(first.tacticalSelection).windowId
+                  val second = coordinator.dispatch(TacticalSelectionAction.Confirm(window))
+                  assertEquals(2, second.completedRounds)
+              }
+
+              @Test fun sameSeedProducesSameInitialScreen() {
+                  val first = DemoFightFactory.coordinator(red, blue, seed = 77L).start()
+                  val replay = DemoFightFactory.coordinator(red, blue, seed = 77L).start()
+                  assertEquals(first, replay)
+              }
+          }
+          KOTLIN
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android tools
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --channel=3 'cmdline-tools;latest' || true
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --list --channel=3 | tee sdk-packages.log
+          "$SDKMANAGER" 'platform-tools' 'build-tools;36.0.0'
+          if grep -q 'platforms;android-37.0' sdk-packages.log; then
+            "$SDKMANAGER" --channel=3 'platforms;android-37.0'
+          elif grep -q 'platforms;android-37' sdk-packages.log; then
+            "$SDKMANAGER" --channel=3 'platforms;android-37'
+          fi
+
+      - name: Validate Jalon 7 data and SQLite
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/audit-jalon7-step1.py | tee jalon7-source-audit.log
+          python3 j7-ci-sqlite.py | tee sqlite-ci.log
+
+      - name: Run Gradle tests
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace \
+            :engine:test :data-local:testDebugUnitTest \
+            :app:testDebugUnitTest :android-ui-compose:testDebugUnitTest \
+            2>&1 | tee tests.log
+
+      - name: Compile debug APK
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --stacktrace :app:assembleDebug 2>&1 | tee build.log
+
+      - name: Verify and stage APK
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$APK"
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" 2>&1 | tee apksigner.log
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/aapt2" dump badging "$APK" 2>&1 | tee apk-badging.log
+          grep -q "package: name='com.titlefight.simulator'" apk-badging.log
+          sha256sum "$APK" | tee title-fight-jalon7-debug.apk.sha256
+          cp "$APK" title-fight-jalon7-debug.apk
+
+      - name: Upload APK and evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: title-fight-jalon7-build-evidence
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            project/title-fight-jalon7-debug.apk
+            project/title-fight-jalon7-debug.apk.sha256
+            project/tests.log
+            project/build.log
+            project/apksigner.log
+            project/apk-badging.log
+            project/jalon7-source-audit.log
+            project/sqlite-ci.log
+            project/sqlite-ci-audit.json
+            project/ci-title-fight.sqlite
+            project/build-jalon7-step1/jalon7-step1-source-audit.json
+            jalon7-transport-check.log
+            sdk-packages.log
+            project/app/build/reports/**
+            project/data-local/build/reports/**
+            project/android-ui-compose/build/reports/**

@@ -1,0 +1,112 @@
+name: Title Bout Roster Portraits Build
+
+on:
+  push:
+    branches: [title-bout-roster-portraits-fix]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Reconstruct corrected project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf extracted
+          mkdir extracted
+          unzip -q title-bout-jalon7-step3-career-source.zip -d extracted
+          PROJECT_DIR="$(dirname "$(find extracted -name settings.gradle.kts -type f | head -n 1)")"
+          test -n "$PROJECT_DIR"
+
+          cat manager-patch/part-*.b64 | tr -d '\n' | base64 -d | gunzip > /tmp/title-bout-manager.patch
+          cd "$PROJECT_DIR"
+          git apply --check /tmp/title-bout-manager.patch
+          git apply --whitespace=nowarn /tmp/title-bout-manager.patch
+          git apply --check "$GITHUB_WORKSPACE/manager-patch/demo-factory-hotfix.patch"
+          git apply --whitespace=nowarn "$GITHUB_WORKSPACE/manager-patch/demo-factory-hotfix.patch"
+          git apply --check "$GITHUB_WORKSPACE/manager-patch/demo-tests-hotfix.patch"
+          git apply --whitespace=nowarn "$GITHUB_WORKSPACE/manager-patch/demo-tests-hotfix.patch"
+
+          cat "$GITHUB_WORKSPACE"/roster-portrait-patch/part-*.b64 | tr -d '\n' | base64 -d | gunzip > /tmp/title-bout-roster-portraits.patch
+          git apply --check /tmp/title-bout-roster-portraits.patch
+          git apply --whitespace=nowarn /tmp/title-bout-roster-portraits.patch
+
+          find . -name build.gradle.kts -type f -print0 | xargs -0 sed -i 's/compileSdk = 37/compileSdk = 36/g; s/targetSdk = 37/targetSdk = 36/g'
+          chmod +x gradlew scripts/*.sh
+          printf '%s\n' "$PROJECT_DIR" > "$GITHUB_WORKSPACE/project-dir.txt"
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+
+      - name: Validate official roster and career
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT_DIR="$(cat project-dir.txt)"
+          cd "$PROJECT_DIR"
+          ./scripts/test-jalon7-step3.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          roster = Path('engine/src/main/kotlin/titlefight/OfficialRoster.kt').read_text(encoding='utf-8')
+          main = Path('app/src/main/kotlin/titlefight/app/MainActivity.kt').read_text(encoding='utf-8')
+          screen = Path('app/src/main/kotlin/titlefight/app/RosterSelectionScreen.kt').read_text(encoding='utf-8')
+          categories = Path('app/src/main/kotlin/titlefight/app/WeightClassSelectionScreen.kt').read_text(encoding='utf-8')
+          portraits = Path('app/src/main/kotlin/titlefight/app/BoxerPortraitStore.kt').read_text(encoding='utf-8')
+          assert 'cards.size == 321' in roster
+          assert 'BOX-103' in roster and 'Harry Greb' in roster
+          assert 'QUICK_CATEGORY' in main
+          assert 'WeightClass.entries.reversed()' in categories
+          assert 'ActivityResultContracts.OpenDocument' in screen
+          assert 'takePersistableUriPermission' in portraits
+          assert 'sourceStyleLabel' in screen and 'sourceRangeLabel' in screen
+          print('Roster 321, catégories obligatoires et portraits fondus : PASS')
+          PY
+
+      - name: Build installable APK
+        shell: bash
+        run: |
+          set -o pipefail
+          PROJECT_DIR="$(cat project-dir.txt)"
+          cd "$PROJECT_DIR"
+          ./gradlew --no-daemon --stacktrace :engine:test :app:assembleDebug 2>&1 | tee "$GITHUB_WORKSPACE/artifacts/gradle-build.log"
+          STATUS=${PIPESTATUS[0]}
+          if [ "$STATUS" -ne 0 ]; then
+            exit "$STATUS"
+          fi
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/artifacts/TitleBout-roster-portraits-debug.apk"
+          sha256sum "$GITHUB_WORKSPACE/artifacts/TitleBout-roster-portraits-debug.apk" | tee "$GITHUB_WORKSPACE/artifacts/TitleBout-roster-portraits-debug.apk.sha256"
+          unzip -t "$GITHUB_WORKSPACE/artifacts/TitleBout-roster-portraits-debug.apk"
+
+      - name: Upload APK and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: title-bout-roster-portraits-build-output
+          path: artifacts/*
+          if-no-files-found: warn
+          retention-days: 30

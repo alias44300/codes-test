@@ -1,0 +1,27 @@
+diff --git a/app/src/main/kotlin/titlefight/app/MainActivity.kt b/app/src/main/kotlin/titlefight/app/MainActivity.kt
+index 808e076..a604164 100644
+--- a/app/src/main/kotlin/titlefight/app/MainActivity.kt
++++ b/app/src/main/kotlin/titlefight/app/MainActivity.kt
+@@ -46,8 +46,20 @@ class MainActivity : ComponentActivity() {
+ 
+ object DemoFightFactory {
+     fun coordinator(
+-        red: BoxerProfile = OfficialRoster.cards.first().profile,
+-        blue: BoxerProfile = OfficialRoster.cards[1].profile,
++        seed: Long = 6_202_607_21L,
++        totalRounds: Int = 3,
++        initialPlayerPlan: TacticalPlan? = null,
++    ): InteractiveFightCoordinator = coordinator(
++        red = OfficialRoster.cards.first().profile,
++        blue = OfficialRoster.cards[1].profile,
++        seed = seed,
++        totalRounds = totalRounds,
++        initialPlayerPlan = initialPlayerPlan,
++    )
++
++    fun coordinator(
++        red: BoxerProfile,
++        blue: BoxerProfile,
+         seed: Long = 6_202_607_21L,
+         totalRounds: Int = 3,
+         initialPlayerPlan: TacticalPlan? = null,

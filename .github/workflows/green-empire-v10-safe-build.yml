@@ -34,7 +34,9 @@ jobs:
           import base64, hashlib
 
           root = Path('green-empire-v10-safe/source_zip')
-          parts = [root / f'chunk_{i:02d}.b64' for i in range(17)]
+          names = [f'chunk_{i:02d}.b64' for i in range(17)]
+          names[9] = 'chunk_09_fixed.b64'
+          parts = [root / name for name in names]
           expected_text_sha = [
               '2622a597ab1b4aeaaf2c309708497fd0000b39d6926361f81683cf2854a8ec11',
               '14c8da8add3217e10d07ffe32df0d752cb31a978f67735c6e008857dcff75f14',

@@ -1,0 +1,99 @@
+name: PixelForge Recovery APK v2
+
+on:
+  push:
+    branches: [pixelforge-apk-build]
+    paths:
+      - 'pixelforge-recovery/**'
+      - '.github/workflows/pixelforge-recovery-build-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pixelforge-apk-build
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.0'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 37
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-37' 'build-tools;37.0.0'
+
+      - name: Build recovery app
+        id: gradle_build
+        continue-on-error: true
+        working-directory: pixelforge-recovery
+        shell: bash
+        run: |
+          set +e
+          gradle --version | tee gradle-version.txt
+          gradle --no-daemon testDebugUnitTest assembleDebug 2>&1 | tee build.log
+          CODE=${PIPESTATUS[0]}
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          exit "$CODE"
+
+      - name: Verify APK
+        id: verify_apk
+        if: steps.gradle_build.outcome == 'success'
+        continue-on-error: true
+        working-directory: pixelforge-recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" > apk-unzip.txt
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose "$APK" | tee apk-signature.txt
+          "$ANDROID_HOME/build-tools/37.0.0/aapt" dump badging "$APK" | tee apk-badging.txt
+          sha256sum "$APK" | tee apk-sha256.txt
+
+      - name: Publish CI evidence to temporary branch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci-results
+          {
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "gradle_outcome=${{ steps.gradle_build.outcome }}"
+            echo "gradle_exit_code=${{ steps.gradle_build.outputs.exit_code }}"
+            echo "verify_outcome=${{ steps.verify_apk.outcome }}"
+          } > ci-results/pixelforge-recovery-status.txt
+          cp pixelforge-recovery/build.log ci-results/pixelforge-recovery-build.log || true
+          cp pixelforge-recovery/gradle-version.txt ci-results/gradle-version.txt || true
+          if [ -f pixelforge-recovery/app/build/outputs/apk/debug/app-debug.apk ]; then
+            cp pixelforge-recovery/app/build/outputs/apk/debug/app-debug.apk ci-results/PixelForgeStudio-0.9.1-recovery.apk
+          fi
+          for f in apk-unzip.txt apk-signature.txt apk-badging.txt apk-sha256.txt; do
+            [ -f "pixelforge-recovery/$f" ] && cp "pixelforge-recovery/$f" "ci-results/$f" || true
+          done
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ci-results
+          git commit -m "ci: record PixelForge recovery build ${GITHUB_RUN_ID}" || exit 0
+          git push origin HEAD:pixelforge-apk-build
+
+      - name: Fail job if build or verification failed
+        if: always()
+        shell: bash
+        run: |
+          test "${{ steps.gradle_build.outcome }}" = success
+          test "${{ steps.verify_apk.outcome }}" = success

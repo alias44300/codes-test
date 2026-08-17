@@ -1,0 +1,71 @@
+name: PixelForge Full M9 Source Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [pixelforge-apk-build]
+    paths: ['.github/workflows/pixelforge-full-m9-check.yml']
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pixelforge-apk-build
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.0'
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '15859902'
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+          packages: platform-tools
+      - name: Reconstruct exact Milestone 9
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,hashlib,zipfile,shutil
+          from pathlib import Path
+          r=Path('pixelforge-apk'); s=r/'source_zip'; z=r/'m9.zip'; o=r/'full-m9'
+          ps=[s/f'chunk_{i:02d}.b64' for i in range(26)]
+          assert all(p.is_file() for p in ps), [p.name for p in ps if not p.is_file()]
+          enc=''.join(''.join(p.read_text().split()) for p in ps)
+          raw=base64.b64decode(enc,validate=True)
+          sha=hashlib.sha256(raw).hexdigest(); print('M9_SHA256='+sha)
+          assert sha=='4df25e5d52fcd6e9d4572728a79594ae9cc362991ee73a35382965c0829dc4e7'
+          z.write_bytes(raw); shutil.rmtree(o,ignore_errors=True); o.mkdir()
+          with zipfile.ZipFile(z) as q:
+            assert q.testzip() is None; q.extractall(o)
+          for f in ['settings.gradle.kts','app/build.gradle.kts','app/src/main/AndroidManifest.xml']:
+            assert (o/f).is_file(),f
+          print('M9_SOURCE_GATE=PASS')
+          PY
+      - name: Install Android 37
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install 'platform-tools' 'platforms;android-37.0' 'build-tools;36.0.0' --channel=3 --sdk_root="$ANDROID_SDK_ROOT"
+          test -s "$ANDROID_SDK_ROOT/platforms/android-37.0/android.jar"
+          test -x "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner"
+          echo ANDROID_37_GATE=PASS
+      - name: Test and build full M9
+        working-directory: pixelforge-apk/full-m9
+        shell: bash
+        run: gradle --no-daemon --stacktrace testDebugUnitTest assembleDebug
+      - name: Verify full APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          A=pixelforge-apk/full-m9/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$A"
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify "$A"
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/aapt" dump badging "$A" | tee /tmp/badging
+          grep -q "package: name='com.pixelforge.studio'" /tmp/badging
+          sha256sum "$A"
+          echo FULL_M9_APK_GATE=PASS

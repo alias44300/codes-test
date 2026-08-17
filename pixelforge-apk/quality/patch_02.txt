@@ -1,0 +1,86 @@
+ersion code")
++    assertTrue(PixelForgeBuildIdentity.VERSION_CODE == 11, "beta build identity version code")
+ 
+     val pressuredReport = betaReport.copy(
+         device = betaReport.device.copy(pssKb = 230 * 1024),
+@@ -465,6 +465,18 @@
+     assertTrue(PaletteTools.sortByHue(customPalette).toSet() == customPalette.toSet(), "palette hue sort must preserve colors")
+     assertTrue(PaletteLibrary.presets.all { it.colors.size in 2..128 }, "built-in professional palettes must stay valid")
+ 
++    val fidelityPro = PixelArtPresets.fidelity.settings
++    assertTrue(fidelityPro.targetMaxDimension == 128, "Fidelity Pro must use a deliberate 128 px art grid")
++    assertTrue(fidelityPro.paletteSize == 24, "Fidelity Pro must cap the automatic palette at 24 colors")
++    assertTrue(fidelityPro.ditherMode == DitherMode.NONE, "Fidelity Pro must avoid blanket dithering")
++    assertTrue(fidelityPro.portraitProtection, "Fidelity Pro must protect portrait anchors")
++    assertTrue(fidelityPro.structureDetailEnabled, "Fidelity Pro must use structural detail analysis")
++    assertTrue(fidelityPro.proV2Enabled, "Fidelity Pro must use the Pro V2 refinement pipeline")
++    assertTrue(fidelityPro.proClusterStrength >= 0.80f, "Fidelity Pro must strongly clean micro-clusters")
++    assertTrue(fidelityPro.saturation == 1.03f, "Fidelity Pro must avoid oversaturating skin tones")
++    assertTrue(fidelityPro.contrast == 1.06f, "Fidelity Pro must keep controlled local contrast")
++    assertTrue(fidelityPro.proAntiJaggyStrength <= 0.20f, "Fidelity Pro anti-jaggy must stay conservative")
++
+     PixelArtPresets.all.forEach { preset ->
+         val rendered = PixelArtEngine.render(portraitFixture(), preset.settings)
+         assertTrue(rendered.image.width > 0 && rendered.image.height > 0, "preset ${preset.id} must render")
+--- a/tools/package_beta.sh
++++ b/tools/package_beta.sh
+@@ -11,16 +11,16 @@
+   exit 2
+ fi
+ 
+-out="dist/PixelForgeStudio-0.9.0-beta-debug.apk"
++out="dist/PixelForgeStudio-0.9.2-beta-debug.apk"
+ cp "$apk" "$out"
+-sha256sum "$out" > dist/PixelForgeStudio-0.9.0-beta-debug.sha256
++sha256sum "$out" > dist/PixelForgeStudio-0.9.2-beta-debug.sha256
+ cat > dist/BETA-BUILD-INFO.txt <<INFO
+-PixelForge Studio 0.9.0 Beta
+-versionCode=9
++PixelForge Studio 0.9.2 Beta
++versionCode=11
+ compileSdk=37
+ targetSdk=37
+ golden=255095e99eee33794785f8c2f65828530e11c648194e566a2054e50ca04c895e
+ apk=$(basename "$out")
+ INFO
+-cat dist/PixelForgeStudio-0.9.0-beta-debug.sha256
++cat dist/PixelForgeStudio-0.9.2-beta-debug.sha256
+ echo "BETA PACKAGE: PASS — $out"
+--- a/tools/package_release_artifacts.sh
++++ b/tools/package_release_artifacts.sh
+@@ -7,11 +7,11 @@
+ 
+ artifacts=()
+ if [[ -f app/build/outputs/apk/debug/app-debug.apk ]]; then
+-  cp app/build/outputs/apk/debug/app-debug.apk dist/PixelForgeStudio-0.9.0-debug.apk
+-  artifacts+=(dist/PixelForgeStudio-0.9.0-debug.apk)
++  cp app/build/outputs/apk/debug/app-debug.apk dist/PixelForgeStudio-0.9.2-debug.apk
++  artifacts+=(dist/PixelForgeStudio-0.9.2-debug.apk)
+ fi
+-if [[ -f dist/PixelForgeStudio-0.9.0-release.apk ]]; then
+-  artifacts+=(dist/PixelForgeStudio-0.9.0-release.apk)
++if [[ -f dist/PixelForgeStudio-0.9.2-release.apk ]]; then
++  artifacts+=(dist/PixelForgeStudio-0.9.2-release.apk)
+ fi
+ if [[ ${#artifacts[@]} -eq 0 ]]; then
+   echo "PACKAGE RELEASE: PARTIAL — no APK has been built in this environment."
+@@ -20,8 +20,8 @@
+ 
+ sha256sum "${artifacts[@]}" > dist/CHECKSUMS.sha256
+ cat > dist/BUILD-INFO.txt <<INFO
+-PixelForge Studio 0.9.0
+-versionCode=9
++PixelForge Studio 0.9.2
++versionCode=11
+ compileSdk=37
+ targetSdk=37
+ sourceGolden=255095e99eee33794785f8c2f65828530e11c648194e566a2054e50ca04c895e
+--- a/tools/release_check.sh
++++ b/tools/release_check.sh
+@@ -29,11 +29,11 @@
+ ./tools/secret_scan.sh
+ 
+ echo "== Version =="
+-grep -q 'versionCode = 9' app/build.gradle.kts
+-grep -q 'versionName = "0.9.0"' app/build.gradle.kts
+-grep -q 'const val VERSION_NAME = "0.9.0"' app/src/main/java/com/pixelforge/studio/core/BetaDi

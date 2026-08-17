@@ -1,0 +1,11 @@
+--- a/app/src/main/java/com/pixelforge/studio/android/BetaDiagnosticsReporter.kt
++++ b/app/src/main/java/com/pixelforge/studio/android/BetaDiagnosticsReporter.kt
+@@ -25,7 +25,7 @@
+             sdkInt = Build.VERSION.SDK_INT,
+             memoryClassMiB = budget.memoryClassMiB,
+             lowRamDevice = budget.isLowRamDevice,
+-            pssKb = Debug.getPss().coerceAtLeast(0),
++            pssKb = Debug.getPss().coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
+             decodeBudgetBytes = budget.decodeBudgetBytes,
+             exportBudgetBytes = budget.exportBudgetBytes,
+             previewMaxDimension = budget.previewMaxDimension,

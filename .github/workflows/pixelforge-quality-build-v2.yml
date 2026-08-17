@@ -1,0 +1,180 @@
+name: PixelForge Studio 0.9.2 Fidelity Pro APK v2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [pixelforge-apk-build]
+    paths:
+      - 'pixelforge-apk/m9_tar_v3/**'
+      - 'pixelforge-apk/quality_patch_v4/**'
+      - '.github/workflows/pixelforge-quality-build-v2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      EXPECTED_SOURCE_SHA256: '6929fe05a090d2676c8a8421237816028d06afdd208daf36f817c1a48d26fa10'
+      EXPECTED_PATCH_SHA256: '1cee0236335c0deed93ed85a91fed7502cc07c83c4409e8d61a6180547c17f65'
+      BUILD_TOOLS_VERSION: '36.0.0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pixelforge-apk-build
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.0'
+
+      - name: Configure Android command-line tools
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '15859902'
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+          packages: platform-tools
+
+      - name: Reconstruct exact Milestone 9 source and Fidelity Pro patch v4
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pixelforge ci-results
+          cat pixelforge-apk/m9_tar_v3/part_*.b64 | tr -d '\r\n ' | base64 -d > /tmp/pixelforge/m9.tar.xz
+          echo "${EXPECTED_SOURCE_SHA256}  /tmp/pixelforge/m9.tar.xz" | sha256sum -c -
+          cat pixelforge-apk/quality_patch_v4/part_*.patch > /tmp/pixelforge/quality.patch
+          echo "${EXPECTED_PATCH_SHA256}  /tmp/pixelforge/quality.patch" | sha256sum -c -
+          rm -rf pixelforge-apk/quality-buildsrc-v2
+          mkdir -p pixelforge-apk/quality-buildsrc-v2
+          tar -xJf /tmp/pixelforge/m9.tar.xz -C pixelforge-apk/quality-buildsrc-v2
+          cd pixelforge-apk/quality-buildsrc-v2
+          patch -p1 < /tmp/pixelforge/quality.patch
+          grep -q 'versionCode = 11' app/build.gradle.kts
+          grep -q 'versionName = "0.9.2"' app/build.gradle.kts
+          grep -q 'const val VERSION_CODE = 11' app/src/main/java/com/pixelforge/studio/core/BetaDiagnostics.kt
+          grep -q 'label = "Fidelity Pro"' app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
+          grep -q 'proV2Enabled = true' app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
+          grep -q 'proClusterStrength = 0.88f' app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
+          grep -q 'coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()' app/src/main/java/com/pixelforge/studio/android/BetaDiagnosticsReporter.kt
+          sha256sum /tmp/pixelforge/m9.tar.xz /tmp/pixelforge/quality.patch | tee "$GITHUB_WORKSPACE/ci-results/source-integrity.sha256"
+
+      - name: Install and doctor Android SDK 37
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --list --channel=3 --sdk_root="$ANDROID_SDK_ROOT" > ci-results/sdk-packages.txt
+          grep -F 'platforms;android-37.0' ci-results/sdk-packages.txt
+          grep -F "build-tools;${BUILD_TOOLS_VERSION}" ci-results/sdk-packages.txt
+          "$SDKMANAGER" --install \
+            'platform-tools' \
+            'platforms;android-37.0' \
+            "build-tools;${BUILD_TOOLS_VERSION}" \
+            --channel=3 \
+            --sdk_root="$ANDROID_SDK_ROOT"
+          PLATFORM_JAR="$ANDROID_SDK_ROOT/platforms/android-37.0/android.jar"
+          BUILD_TOOLS="$ANDROID_SDK_ROOT/build-tools/${BUILD_TOOLS_VERSION}"
+          test -s "$PLATFORM_JAR"
+          test -x "$BUILD_TOOLS/aapt"
+          test -x "$BUILD_TOOLS/apksigner"
+          test -x "$ANDROID_SDK_ROOT/platform-tools/adb"
+          {
+            echo 'ANDROID_SDK_37_READY'
+            echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+            echo "platform=$PLATFORM_JAR"
+            echo "build_tools=$BUILD_TOOLS"
+            echo "adb=$ANDROID_SDK_ROOT/platform-tools/adb"
+          } | tee ci-results/android-sdk-37-doctor.txt
+
+      - name: Run Android unit tests and build real PixelForge APK
+        working-directory: pixelforge-apk/quality-buildsrc-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --version | tee "$GITHUB_WORKSPACE/ci-results/gradle-version.txt"
+          gradle --no-daemon --stacktrace testDebugUnitTest assembleDebug 2>&1 | tee "$GITHUB_WORKSPACE/ci-results/gradle-build.log"
+
+      - name: Verify Fidelity Pro APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC_APK="$GITHUB_WORKSPACE/pixelforge-apk/quality-buildsrc-v2/app/build/outputs/apk/debug/app-debug.apk"
+          FINAL_APK="$GITHUB_WORKSPACE/ci-results/PixelForgeStudio-0.9.2-fidelity-pro-debug.apk"
+          BUILD_TOOLS="$ANDROID_SDK_ROOT/build-tools/${BUILD_TOOLS_VERSION}"
+          test -s "$SRC_APK"
+          cp "$SRC_APK" "$FINAL_APK"
+          unzip -t "$FINAL_APK" | tee ci-results/apk-unzip.txt
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$FINAL_APK" | tee ci-results/apk-signature.txt
+          "$BUILD_TOOLS/aapt" dump badging "$FINAL_APK" | tee ci-results/apk-badging.txt
+          grep -q "package: name='com.pixelforge.studio' versionCode='11' versionName='0.9.2'" ci-results/apk-badging.txt
+          grep -q "sdkVersion:'28'" ci-results/apk-badging.txt
+          grep -q "targetSdkVersion:'37'" ci-results/apk-badging.txt
+          sha256sum "$FINAL_APK" | tee ci-results/apk-sha256.txt
+
+      - name: Boot emulator, install and launch PixelForge 0.9.2
+        id: emulator
+        continue-on-error: true
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            APK="$GITHUB_WORKSPACE/ci-results/PixelForgeStudio-0.9.2-fidelity-pro-debug.apk"
+            adb install -r "$APK" | tee "$GITHUB_WORKSPACE/ci-results/device-install.txt"
+            adb logcat -c
+            adb shell am force-stop com.pixelforge.studio
+            adb shell am start -W -n com.pixelforge.studio/.MainActivity | tee "$GITHUB_WORKSPACE/ci-results/device-launch.txt"
+            sleep 4
+            adb shell dumpsys activity activities > "$GITHUB_WORKSPACE/ci-results/device-activities.txt"
+            grep -E 'mResumedActivity.*com\.pixelforge\.studio|topResumedActivity=.*com\.pixelforge\.studio' "$GITHUB_WORKSPACE/ci-results/device-activities.txt"
+            adb logcat -d -t 1000 > "$GITHUB_WORKSPACE/ci-results/device-logcat.txt"
+            if grep -E 'FATAL EXCEPTION|Process: com\.pixelforge\.studio.*has died' "$GITHUB_WORKSPACE/ci-results/device-logcat.txt"; then
+              echo 'PixelForge runtime crash detected' >&2
+              exit 1
+            fi
+            adb exec-out screencap -p > "$GITHUB_WORKSPACE/ci-results/device-launch.png"
+
+      - name: Enforce emulator gate
+        if: always()
+        shell: bash
+        run: |
+          test "${{ steps.emulator.outcome }}" = success
+
+      - name: Write verification summary
+        if: success()
+        shell: bash
+        run: |
+          cat > ci-results/VERIFICATION.txt <<'EOF'
+          PixelForge Studio 0.9.2 Fidelity Pro
+          source Milestone 9 SHA-256: 6929fe05a090d2676c8a8421237816028d06afdd208daf36f817c1a48d26fa10
+          Android SDK API: 37
+          Build Tools: 36.0.0
+          Gradle: 9.5.0
+          JDK: 17
+          Android Debug.getPss Long-to-Int bounded compatibility fix: PASS
+          unit tests: PASS
+          assembleDebug: PASS
+          APK signature/badging/ZIP: PASS
+          emulator install/launch/logcat: PASS
+          Fidelity Pro: 128px, 24 colors, no blanket dither, portrait protection, structure analysis, Pro V2, strong cluster cleanup, conservative anti-jaggy
+          EOF
+
+      - name: Upload verified APK and evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PixelForgeStudio-0.9.2-fidelity-pro
+          path: ci-results/
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,50 @@
+name: PixelForge source diagnostic
+
+on:
+  push:
+    branches: [pixelforge-apk-build]
+    paths:
+      - '.github/workflows/pixelforge-source-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct padded archive and identify damaged entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC='pixelforge-apk/source_zip'
+          OUT='pixelforge-apk/diagnostic-source.zip'
+          {
+            cat "$SRC/chunk_00.b64"
+            printf '%0593d' 0 | tr '0' 'A'
+            find "$SRC" -maxdepth 1 -type f -name 'chunk_*.b64' ! -name 'chunk_00.b64' -print | sort | xargs cat
+          } | tr -d '\r\n\t ' | base64 -d > "$OUT"
+          echo "PADDED_SHA256=$(sha256sum "$OUT" | awk '{print $1}')"
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+          p = Path('pixelforge-apk/diagnostic-source.zip')
+          with zipfile.ZipFile(p) as z:
+              print('ENTRY_COUNT=', len(z.infolist()))
+              bad = z.testzip()
+              print('FIRST_BAD_ENTRY=', bad)
+              if bad:
+                  info = z.getinfo(bad)
+                  print('BAD_ENTRY_SIZE=', info.file_size)
+                  print('BAD_ENTRY_COMPRESSED_SIZE=', info.compress_size)
+              critical = bool(bad and (
+                  bad.startswith('app/') or
+                  bad.startswith('gradle/') or
+                  bad in {'build.gradle.kts','settings.gradle.kts','gradle.properties'}
+              ))
+              print('BUILD_CRITICAL_DAMAGE=', str(critical).lower())
+          PY

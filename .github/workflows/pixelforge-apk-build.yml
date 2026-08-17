@@ -31,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import base64, hashlib, re, sys, zipfile
+          import base64, hashlib, sys, zipfile
           from pathlib import Path
 
           root = Path('pixelforge-apk')
@@ -40,14 +40,11 @@ jobs:
           build = root / 'buildsrc'
           expected = '4df25e5d52fcd6e9d4572728a79594ae9cc362991ee73a35382965c0829dc4e7'
 
-          chunks = sorted(
-              src.glob('chunk_*.b64'),
-              key=lambda p: int(re.search(r'(\d+)$', p.stem).group(1)),
-          )
           expected_names = [f'chunk_{i:02d}.b64' for i in range(26)]
-          actual_names = [p.name for p in chunks]
-          if actual_names != expected_names:
-              print('CHUNK_SET_MISMATCH', actual_names)
+          chunks = [src / name for name in expected_names]
+          missing_chunks = [p.name for p in chunks if not p.is_file()]
+          if missing_chunks:
+              print('MISSING_CHUNKS=', missing_chunks)
               sys.exit(20)
 
           encoded = ''.join(p.read_text(encoding='utf-8') for p in chunks)

@@ -1,0 +1,113 @@
+name: PixelForge M9 exact source recovery diagnostic
+
+on:
+  push:
+    branches: [pixelforge-apk-build]
+    paths:
+      - '.github/workflows/pixelforge-m9-recovery-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pixelforge-apk-build
+
+      - name: Recover exact v2 pieces by Git blob fingerprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, sys, zipfile
+          from pathlib import Path
+
+          root = Path('pixelforge-apk')
+          v2 = root / 'source_zip_v2'
+          old = root / 'source_zip'
+          expected_zip_sha = '4df25e5d52fcd6e9d4572728a79594ae9cc362991ee73a35382965c0829dc4e7'
+          hashes = [
+            'f263d46dacb54835b4eac9e677ef59234c947a4d','35d288c27a41faa173b3e840f2d61cf0f82e06c3',
+            '951e6fbd643bb914df109bf5f91deb71e56e8569','b94cfdec1ae76465c3b15986d47be89cf4740941',
+            '157a67874a24168c2731396cf4a0d18dfcdce1ba','06f07b06b3a896ef4cbd8b5a0f09b3b700425d8a',
+            '7d07a2925f1cbd00c5afded4b63261daa130aeaf','cbb13b01a41f2ef40a23c78c114169c10ce3b9be',
+            'ae71884f14eb27776b35f7df3cd73dd08e407043','2805fc61b03646726cd5f11a5aa9b28f4ba11805',
+            '27a6a955c5d7f39d96b3d61abfb0a0cf8477631b','cbf18231e13402ce433c3e434c7f8525c439a435',
+            '72f76ce6e8d339c6dbd56ea23230133aaf1e08e9','111d0d19af321a2d18bdb638a82f4961a6c5ecaa',
+            '71d8d4158984f24ffc271a2e90aa6f16e3c9e1e4','dd2bb4532d0c063a8f09dea1d83e4a6eacf8f3c6',
+            '9b78af40b503d4cad865114cfa4460bdcc9225cb','018738c69726545ca46ebe7c4529d8f9348c4825',
+            'aa768e5312f52ae297dac290bb40fe87613a38f8','037a5919ca711851583bf1a5091564c5a5192490',
+            '4254b21aaef6dc69edb277df86b3f8464ddd9277','c3c23daf70f224994080720264497d18282b541f',
+            'e8cd9d04a1c021aa1cf4ce5b5eb65d88248a97ad','4c2e00b6ae6c3a556efb20ba1a2e795404bc9d09',
+            'c2959a43cc68300531c0a5b83f26e52767aa719e','aa53b202018f72219de9d2c12cb1c07e61848c17',
+            'aa252695a5563983e2d775d7609ef8a5cc3aa0b7','a4ccfb1800dc4a72a978063497f6f502817ebde9',
+            'a5904075bcd10211cd362f9309f79b8be242e9e6','ed758c6f692b2933006371388b376b9934e78d0f',
+            '6dc920a2e913968bb88515cb5f77af17bfe2e130','fed0b932a9a37fb8f1c2433a39539ad464b45fa3',
+            'c7442db96d601c137a209053f0f8ca44efad537f','0de9573956f50e85b625b14218567404e7ae61a1',
+            '8f2db4202cf30f3251100d982fce03bc00a3408f','586f89d10c864aed1f844ea4db059f9ad4ee6f01'
+          ]
+          lengths = [5000] * 35 + [2184]
+
+          def clean(p): return ''.join(p.read_text(encoding='utf-8').split())
+          def gitsha(text):
+              b = text.encode()
+              return hashlib.sha1(f'blob {len(b)}\0'.encode() + b).hexdigest()
+
+          parts = {}
+          for i in range(21):
+              p = v2 / f'part_{i:02d}.b64'
+              text = clean(p)
+              actual = gitsha(text)
+              if actual != hashes[i]:
+                  print(f'PART_{i:02d}_BAD expected={hashes[i]} actual={actual}')
+                  sys.exit(30)
+              parts[i] = text
+              print(f'PART_{i:02d}=DIRECT_PASS')
+
+          targets = {hashes[i]: (i, lengths[i]) for i in range(21, 36)}
+          candidates = sorted(old.glob('*.b64')) + sorted(v2.glob('*.b64'))
+          by_len = {}
+          for h, (i, n) in targets.items(): by_len.setdefault(n, set()).add(h)
+
+          for p in candidates:
+              text = clean(p)
+              for n, wanted in by_len.items():
+                  if not wanted or len(text) < n: continue
+                  prefix = f'blob {n}\0'.encode()
+                  for start in range(0, len(text) - n + 1):
+                      window = text[start:start+n]
+                      h = hashlib.sha1(prefix + window.encode()).hexdigest()
+                      if h in wanted:
+                          i, _ = targets[h]
+                          parts[i] = window
+                          wanted.remove(h)
+                          print(f'PART_{i:02d}=RECOVERED from={p} offset={start}')
+                          if not wanted: break
+
+          missing = [i for i in range(36) if i not in parts]
+          if missing:
+              print('MISSING_PARTS=', ','.join(f'{i:02d}' for i in missing))
+              sys.exit(31)
+
+          encoded = ''.join(parts[i] for i in range(36))
+          try:
+              payload = base64.b64decode(encoded, validate=True)
+          except Exception as exc:
+              print('BASE64_FAIL', type(exc).__name__, str(exc)); sys.exit(32)
+          digest = hashlib.sha256(payload).hexdigest()
+          print('RECOVERED_ZIP_SHA256=', digest)
+          if digest != expected_zip_sha:
+              print('ZIP_SHA_MISMATCH'); sys.exit(33)
+
+          archive = root / 'm9-exact.zip'
+          archive.write_bytes(payload)
+          with zipfile.ZipFile(archive) as z:
+              bad = z.testzip()
+              if bad: print('ZIP_CRC_FAIL=', bad); sys.exit(34)
+          print('M9_EXACT_SOURCE_RECOVERY=PASS')
+          PY

@@ -1,0 +1,138 @@
+name: PixelForge Studio v0.9 APK
+
+on:
+  push:
+    branches: [pixelforge-apk-build]
+    paths:
+      - '.github/workflows/pixelforge-apk-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.0'
+
+      - name: Reconstruct recoverable source and enforce critical-file integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$GITHUB_WORKSPACE/pixelforge-apk/source_zip"
+          ARCHIVE="$GITHUB_WORKSPACE/pixelforge-apk/reconstructed-source.zip"
+          BUILD="$GITHUB_WORKSPACE/pixelforge-apk/buildsrc"
+          {
+            cat "$SRC/chunk_00.b64"
+            printf '%0593d' 0 | tr '0' 'A'
+            find "$SRC" -maxdepth 1 -type f -name 'chunk_*.b64' ! -name 'chunk_00.b64' -print | sort | xargs cat
+          } | tr -d '\r\n\t ' | base64 -d > "$ARCHIVE"
+          sha256sum "$ARCHIVE" | tee "$GITHUB_WORKSPACE/pixelforge-apk/RECONSTRUCTED_SOURCE_SHA256.txt"
+          rm -rf "$BUILD"
+          mkdir -p "$BUILD"
+          python3 - <<'PY'
+          import sys, zipfile
+          from pathlib import Path
+          archive = Path('pixelforge-apk/reconstructed-source.zip')
+          build = Path('pixelforge-apk/buildsrc')
+          bad = []
+          with zipfile.ZipFile(archive) as z:
+              for info in z.infolist():
+                  try:
+                      z.extract(info, build)
+                  except Exception as exc:
+                      bad.append((info.filename, type(exc).__name__, str(exc)))
+          print('DAMAGED_ENTRIES=', len(bad))
+          critical = []
+          for name, kind, message in bad:
+              print('DAMAGED_ENTRY=', name, kind, message)
+              if (name.startswith('app/') or name.startswith('gradle/') or
+                  name in {'build.gradle.kts','settings.gradle.kts','gradle.properties'}):
+                  critical.append(name)
+          if critical:
+              print('BUILD_CRITICAL_DAMAGE=', ','.join(critical))
+              sys.exit(21)
+          print('BUILD_CRITICAL_DAMAGE=false')
+          required = [
+              build / 'settings.gradle.kts',
+              build / 'build.gradle.kts',
+              build / 'app/build.gradle.kts',
+              build / 'app/src/main/AndroidManifest.xml',
+          ]
+          missing = [str(p) for p in required if not p.is_file()]
+          if missing:
+              print('MISSING_REQUIRED=', ','.join(missing))
+              sys.exit(22)
+          PY
+
+      - name: Install Android SDK 37 packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v sdkmanager
+          sdkmanager 'platforms;android-37' 'build-tools;37.0.0' 'platform-tools'
+          test -f "$ANDROID_HOME/platforms/android-37/android.jar"
+          test -x "$ANDROID_HOME/build-tools/37.0.0/apksigner"
+
+      - name: Unit tests and assemble debug APK
+        working-directory: pixelforge-apk/buildsrc
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace testDebugUnitTest assembleDebug
+
+      - name: Verify and package APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$GITHUB_WORKSPACE/pixelforge-apk/buildsrc/app/build/outputs/apk/debug/app-debug.apk"
+          OUT="$GITHUB_WORKSPACE/pixelforge-apk/package"
+          test -f "$APK"
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          cp "$APK" "$OUT/PixelForgeStudio-0.9.0-debug.apk"
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$OUT/PixelForgeStudio-0.9.0-debug.apk" | tee "$OUT/APKSIGNER_REPORT.txt"
+          "$ANDROID_HOME/build-tools/37.0.0/aapt" dump badging "$OUT/PixelForgeStudio-0.9.0-debug.apk" | tee "$OUT/AAPT_BADGING.txt"
+          sha256sum "$OUT/PixelForgeStudio-0.9.0-debug.apk" | tee "$OUT/PixelForgeStudio-0.9.0-debug.apk.sha256"
+          printf '%s\n' \
+            'PixelForge Studio 0.9.0' \
+            'Build type: debug APK' \
+            'compileSdk/targetSdk: 37' \
+            'Gradle: 9.5.0' \
+            'JDK: 17' \
+            'Unit tests: passed before packaging' \
+            'APK verification: apksigner + aapt' \
+            'Physical-device test: not performed by this workflow' \
+            > "$OUT/BUILD_REPORT.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PixelForgeStudio-0.9.0-debug-apk
+          path: pixelforge-apk/package/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish verified APK to temporary branch only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f pixelforge-apk/package/PixelForgeStudio-0.9.0-debug.apk \
+                     pixelforge-apk/package/PixelForgeStudio-0.9.0-debug.apk.sha256 \
+                     pixelforge-apk/package/APKSIGNER_REPORT.txt \
+                     pixelforge-apk/package/AAPT_BADGING.txt \
+                     pixelforge-apk/package/BUILD_REPORT.txt
+          git commit -m 'build: publish verified PixelForge 0.9 debug APK'
+          git push origin HEAD:pixelforge-apk-build

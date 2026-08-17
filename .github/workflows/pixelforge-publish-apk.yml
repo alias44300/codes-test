@@ -1,0 +1,35 @@
+name: PixelForge Publish Verified APK
+
+on:
+  push:
+    branches: [pixelforge-apk-build]
+    paths:
+      - '.github/workflows/pixelforge-publish-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pixelforge-apk-build
+
+      - name: Verify exact APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='ci-results/PixelForgeStudio-0.9.1-recovery.apk'
+          test -s "$APK"
+          echo 'f8bd4ae645f4029d481a41043d1b6c2e032f3e16200ec9ceed8ebff772cd1b12  ci-results/PixelForgeStudio-0.9.1-recovery.apk' | sha256sum -c -
+
+      - name: Upload verified APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PixelForgeStudio-0.9.1-recovery-apk
+          path: ci-results/PixelForgeStudio-0.9.1-recovery.apk
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,1 @@
+sdkmanager=/usr/local/lib/android/sdk/cmdline-tools/15859902/bin/sdkmanager

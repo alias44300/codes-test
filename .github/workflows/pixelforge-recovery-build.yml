@@ -1,0 +1,63 @@
+name: PixelForge Recovery APK
+
+on:
+  push:
+    branches: [pixelforge-apk-build]
+    paths:
+      - 'pixelforge-recovery/**'
+      - '.github/workflows/pixelforge-recovery-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.0'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 37
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-37' 'build-tools;37.0.0'
+
+      - name: Build and unit-test recovery app
+        working-directory: pixelforge-recovery
+        run: |
+          gradle --version
+          gradle --no-daemon testDebugUnitTest assembleDebug
+
+      - name: Verify APK structure and signature
+        working-directory: pixelforge-recovery
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK"
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/37.0.0/aapt" dump badging "$APK" | tee apk-badging.txt
+          sha256sum "$APK" | tee apk-sha256.txt
+          mkdir -p build/reports/pixelforge
+          cp apk-badging.txt apk-sha256.txt build/reports/pixelforge/
+
+      - name: Upload verified APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PixelForgeStudio-0.9.1-recovery
+          path: |
+            pixelforge-recovery/app/build/outputs/apk/debug/app-debug.apk
+            pixelforge-recovery/build/reports/pixelforge/*
+          if-no-files-found: error
+          retention-days: 14

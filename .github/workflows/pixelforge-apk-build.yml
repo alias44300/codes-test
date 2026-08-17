@@ -1,3 +1,4 @@
+# Trigger after restoring exact Milestone 9 source chunks 00-25.
 name: PixelForge Studio v0.9 APK
 
 on:

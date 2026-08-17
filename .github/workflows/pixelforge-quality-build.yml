@@ -7,6 +7,7 @@ on:
     paths:
       - 'pixelforge-apk/m9_tar_v3/**'
       - 'pixelforge-apk/quality_patch_v3/**'
+      - 'pixelforge-apk/quality_compilefix_v4.patch'
       - '.github/workflows/pixelforge-quality-build.yml'
 
 permissions:
@@ -15,10 +16,11 @@ permissions:
 jobs:
   build-and-smoke:
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 55
     env:
       EXPECTED_SOURCE_SHA256: '6929fe05a090d2676c8a8421237816028d06afdd208daf36f817c1a48d26fa10'
       EXPECTED_PATCH_SHA256: 'd29d80c8327399047bd37edfa41e83f41f9cbdb5b75141d788af970b85aa3997'
+      EXPECTED_COMPILEFIX_SHA256: '427045ec2288bc59255a36d33d9aaa2e66017658d25fa7143bbb84561ec89774'
       BUILD_TOOLS_VERSION: '36.0.0'
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +44,7 @@ jobs:
           log-accepted-android-sdk-licenses: false
           packages: platform-tools
 
-      - name: Reconstruct exact Milestone 9 source and Fidelity Pro patch
+      - name: Reconstruct exact Milestone 9 source and Fidelity Pro patches
         shell: bash
         run: |
           set -euo pipefail
@@ -51,19 +53,40 @@ jobs:
           echo "${EXPECTED_SOURCE_SHA256}  /tmp/pixelforge/m9.tar.xz" | sha256sum -c -
           cat pixelforge-apk/quality_patch_v3/part_*.patch > /tmp/pixelforge/quality.patch
           echo "${EXPECTED_PATCH_SHA256}  /tmp/pixelforge/quality.patch" | sha256sum -c -
+          cp pixelforge-apk/quality_compilefix_v4.patch /tmp/pixelforge/compilefix.patch
+          echo "${EXPECTED_COMPILEFIX_SHA256}  /tmp/pixelforge/compilefix.patch" | sha256sum -c -
           rm -rf pixelforge-apk/quality-buildsrc
           mkdir -p pixelforge-apk/quality-buildsrc
           tar -xJf /tmp/pixelforge/m9.tar.xz -C pixelforge-apk/quality-buildsrc
           cd pixelforge-apk/quality-buildsrc
           patch -p1 < /tmp/pixelforge/quality.patch
+          patch -p1 < /tmp/pixelforge/compilefix.patch
           grep -q 'versionCode = 11' app/build.gradle.kts
           grep -q 'versionName = "0.9.2"' app/build.gradle.kts
           grep -q 'const val VERSION_CODE = 11' app/src/main/java/com/pixelforge/studio/core/BetaDiagnostics.kt
           grep -q 'label = "Fidelity Pro"' app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
+          grep -q 'targetMaxDimension = 128' app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
+          grep -q 'paletteSize = 24' app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
+          grep -q 'ditherMode = DitherMode.NONE' app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
+          grep -q 'portraitProtection = true' app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
+          grep -q 'structureDetailEnabled = true' app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
           grep -q 'proV2Enabled = true' app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
           grep -q 'proClusterStrength = 0.88f' app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
           grep -q 'proAntiJaggyStrength = 0.18f' app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
-          sha256sum /tmp/pixelforge/m9.tar.xz /tmp/pixelforge/quality.patch | tee "$GITHUB_WORKSPACE/ci-results/source-integrity.sha256"
+          grep -q 'Debug.getPss().coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()' app/src/main/java/com/pixelforge/studio/android/BetaDiagnosticsReporter.kt
+          sha256sum /tmp/pixelforge/m9.tar.xz /tmp/pixelforge/quality.patch /tmp/pixelforge/compilefix.patch | tee "$GITHUB_WORKSPACE/ci-results/source-integrity.sha256"
+
+      - name: Run deterministic core quality gates
+        working-directory: pixelforge-apk/quality-buildsrc
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./tools/run_core_smoke.sh | tee "$GITHUB_WORKSPACE/ci-results/core-smoke.txt"
+          ./tools/run_highres_benchmark.sh | tee "$GITHUB_WORKSPACE/ci-results/highres-benchmark.txt"
+          ./tools/kotlin_syntax_check.sh | tee "$GITHUB_WORKSPACE/ci-results/kotlin-syntax.txt"
+          grep -q '255095e99eee33794785f8c2f65828530e11c648194e566a2054e50ca04c895e' "$GITHUB_WORKSPACE/ci-results/core-smoke.txt"
+          grep -q 'Core smoke tests passed' "$GITHUB_WORKSPACE/ci-results/core-smoke.txt"
+          grep -q 'KOTLIN SYNTAX: PASS' "$GITHUB_WORKSPACE/ci-results/kotlin-syntax.txt"
 
       - name: Install and doctor Android SDK 37
         shell: bash
@@ -157,12 +180,17 @@ jobs:
         run: |
           cat > ci-results/VERIFICATION.txt <<'EOF'
           PixelForge Studio 0.9.2 Fidelity Pro
-          source Milestone 9 SHA-256: 6929fe05a090d2676c8a8421237816028d06afdd208daf36f817c1a48d26fa10
+          Milestone 9 source bundle SHA-256: 6929fe05a090d2676c8a8421237816028d06afdd208daf36f817c1a48d26fa10
+          quality patch SHA-256: d29d80c8327399047bd37edfa41e83f41f9cbdb5b75141d788af970b85aa3997
+          Android 37 compile fix SHA-256: 427045ec2288bc59255a36d33d9aaa2e66017658d25fa7143bbb84561ec89774
           Android SDK API: 37
           Build Tools: 36.0.0
           Gradle: 9.5.0
           JDK: 17
-          unit tests: PASS
+          deterministic core smoke: PASS
+          historical golden hash: PASS
+          high-resolution host benchmark: PASS
+          Android unit tests: PASS
           assembleDebug: PASS
           APK signature/badging/ZIP: PASS
           emulator install/launch/logcat: PASS

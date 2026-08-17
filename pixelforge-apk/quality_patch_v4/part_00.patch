@@ -1,0 +1,167 @@
+--- a/README.md
++++ b/README.md
+@@ -4,7 +4,7 @@
+ 
+ ## Milestone 9 — Pixel Art Pro V2
+ 
+-PixelForge Studio `0.9.0` introduces an optional professional refinement stage while preserving the historical Fidelity render bit-for-bit when Pro V2 is disabled.
++PixelForge Studio `0.9.2` introduces an optional professional refinement stage while preserving the historical Fidelity render bit-for-bit when Pro V2 is disabled.
+ 
+ ### Pro V2 pipeline
+ 
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -11,8 +11,8 @@
+         applicationId = "com.pixelforge.studio"
+         minSdk = 28
+         targetSdk = 37
+-        versionCode = 9
+-        versionName = "0.9.0"
++        versionCode = 11
++        versionName = "0.9.2"
+ 
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+--- a/app/src/androidTest/java/com/pixelforge/studio/BetaLaunchInstrumentedTest.kt
++++ b/app/src/androidTest/java/com/pixelforge/studio/BetaLaunchInstrumentedTest.kt
+@@ -18,7 +18,7 @@
+     fun launcherShowsBetaIdentityAndImportAction() {
+         composeRule.onNodeWithTag("beta-version")
+             .assertIsDisplayed()
+-            .assertTextContains("0.9.0")
++            .assertTextContains("0.9.2")
+         composeRule.onNodeWithTag("import-photo").assertIsDisplayed()
+         composeRule.onNodeWithTag("beta-diagnostics-export").assertIsDisplayed()
+     }
+--- a/app/src/androidTest/java/com/pixelforge/studio/DeviceMemoryInstrumentedTest.kt
++++ b/app/src/androidTest/java/com/pixelforge/studio/DeviceMemoryInstrumentedTest.kt
+@@ -34,7 +34,7 @@
+             originalIntegrityVerified = true,
+             nowEpochMs = 1L,
+         )
+-        assertTrue(betaReport.encodeText().contains("version=0.9.0"))
++        assertTrue(betaReport.encodeText().contains("version=0.9.2"))
+ 
+         val beforePssKb = Debug.getPss()
+         val fixture = PixelBuffer(
+--- a/app/src/main/java/com/pixelforge/studio/android/BetaDiagnosticsReporter.kt
++++ b/app/src/main/java/com/pixelforge/studio/android/BetaDiagnosticsReporter.kt
+@@ -25,7 +25,7 @@
+             sdkInt = Build.VERSION.SDK_INT,
+             memoryClassMiB = budget.memoryClassMiB,
+             lowRamDevice = budget.isLowRamDevice,
+-            pssKb = Debug.getPss().coerceAtLeast(0),
++            pssKb = Debug.getPss().coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
+             decodeBudgetBytes = budget.decodeBudgetBytes,
+             exportBudgetBytes = budget.exportBudgetBytes,
+             previewMaxDimension = budget.previewMaxDimension,
+--- a/app/src/main/java/com/pixelforge/studio/core/BetaDiagnostics.kt
++++ b/app/src/main/java/com/pixelforge/studio/core/BetaDiagnostics.kt
+@@ -5,8 +5,8 @@
+  * app/build.gradle.kts is checked against these values by the release tooling.
+  */
+ object PixelForgeBuildIdentity {
+-    const val VERSION_NAME = "0.9.0"
+-    const val VERSION_CODE = 9
++    const val VERSION_NAME = "0.9.2"
++    const val VERSION_CODE = 11
+     const val GOLDEN_PORTRAIT_SHA256 = "255095e99eee33794785f8c2f65828530e11c648194e566a2054e50ca04c895e"
+ }
+ 
+--- a/app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
++++ b/app/src/main/java/com/pixelforge/studio/core/PixelArtPresets.kt
+@@ -9,16 +9,23 @@
+ object PixelArtPresets {
+     val fidelity = PixelArtPreset(
+         id = "fidelity",
+-        label = "Fidelity",
++        label = "Fidelity Pro",
+         settings = PixelArtSettings(
+             targetMaxDimension = 128,
+             paletteSize = 24,
+             ditherMode = DitherMode.NONE,
+             outlineMode = OutlineMode.SOFT,
+             cleanupIsolatedPixels = true,
+-            saturation = 1.05f,
+-            contrast = 1.05f,
+-            detailStrength = 0.8f,
++            saturation = 1.03f,
++            contrast = 1.06f,
++            detailStrength = 1f,
++            portraitProtection = true,
++            structureDetailEnabled = true,
++            structureDetailStrength = 0.82f,
++            proV2Enabled = true,
++            proToneStrength = 0.74f,
++            proClusterStrength = 0.88f,
++            proAntiJaggyStrength = 0.18f,
+         ),
+     )
+ 
+--- a/app/src/main/java/com/pixelforge/studio/ui/PixelForgeApp.kt
++++ b/app/src/main/java/com/pixelforge/studio/ui/PixelForgeApp.kt
+@@ -139,16 +139,16 @@
+     var dither by remember { mutableStateOf(DitherMode.NONE) }
+     var outline by remember { mutableStateOf(OutlineMode.SOFT) }
+     var cleanup by remember { mutableStateOf(true) }
+-    var saturation by remember { mutableFloatStateOf(1.05f) }
+-    var contrast by remember { mutableFloatStateOf(1.05f) }
+-    var detailStrength by remember { mutableFloatStateOf(0.8f) }
+-    var portraitProtection by remember { mutableStateOf(true) }
+-    var structureDetailEnabled by remember { mutableStateOf(false) }
+-    var structureDetailStrength by remember { mutableFloatStateOf(0.65f) }
+-    var proV2Enabled by remember { mutableStateOf(false) }
+-    var proToneStrength by remember { mutableFloatStateOf(0.60f) }
+-    var proClusterStrength by remember { mutableFloatStateOf(0.70f) }
+-    var proAntiJaggyStrength by remember { mutableFloatStateOf(0.35f) }
++    var saturation by remember { mutableFloatStateOf(PixelArtPresets.fidelity.settings.saturation) }
++    var contrast by remember { mutableFloatStateOf(PixelArtPresets.fidelity.settings.contrast) }
++    var detailStrength by remember { mutableFloatStateOf(PixelArtPresets.fidelity.settings.detailStrength) }
++    var portraitProtection by remember { mutableStateOf(PixelArtPresets.fidelity.settings.portraitProtection) }
++    var structureDetailEnabled by remember { mutableStateOf(PixelArtPresets.fidelity.settings.structureDetailEnabled) }
++    var structureDetailStrength by remember { mutableFloatStateOf(PixelArtPresets.fidelity.settings.structureDetailStrength) }
++    var proV2Enabled by remember { mutableStateOf(PixelArtPresets.fidelity.settings.proV2Enabled) }
++    var proToneStrength by remember { mutableFloatStateOf(PixelArtPresets.fidelity.settings.proToneStrength) }
++    var proClusterStrength by remember { mutableFloatStateOf(PixelArtPresets.fidelity.settings.proClusterStrength) }
++    var proAntiJaggyStrength by remember { mutableFloatStateOf(PixelArtPresets.fidelity.settings.proAntiJaggyStrength) }
+     var sourceTransform by remember { mutableStateOf(SourceTransform.Identity) }
+     var subjectMaskEnabled by remember { mutableStateOf(false) }
+     var subjectMaskThreshold by remember { mutableFloatStateOf(0.45f) }
+@@ -654,7 +654,7 @@
+             fontWeight = FontWeight.Black,
+         )
+         Text(
+-            text = "Photo → pixel art Fidelity / Pro V2 · Retouche non destructive",
++            text = "Photo → pixel art Fidelity Pro · clusters propres · visage protégé",
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+--- a/app/src/test/java/com/pixelforge/studio/core/ProfessionalWorkflowTest.kt
++++ b/app/src/test/java/com/pixelforge/studio/core/ProfessionalWorkflowTest.kt
+@@ -14,6 +14,22 @@
+ import java.nio.file.Files
+ 
+ class ProfessionalWorkflowTest {
++
++    @Test
++    fun fidelityProPresetUsesIntentionalPortraitPixelArtDefaults() {
++        val fidelity = PixelArtPresets.fidelity.settings
++        assertEquals(128, fidelity.targetMaxDimension)
++        assertEquals(24, fidelity.paletteSize)
++        assertEquals(DitherMode.NONE, fidelity.ditherMode)
++        assertTrue(fidelity.portraitProtection)
++        assertTrue(fidelity.structureDetailEnabled)
++        assertTrue(fidelity.proV2Enabled)
++        assertTrue(fidelity.proClusterStrength >= 0.80f)
++        assertTrue(fidelity.proAntiJaggyStrength <= 0.20f)
++        assertEquals(1.03f, fidelity.saturation, 0f)
++        assertEquals(1.06f, fidelity.contrast, 0f)
++    }
++
+     @Test
+     fun largeDecodePlanCountsFullWorkingSet() {
+         val plan = DecodePlanner.plan(
+--- a/tools/CoreSmokeTest.kt
++++ b/tools/CoreSmokeTest.kt
+@@ -127,11 +127,11 @@
+         notes = listOf("re

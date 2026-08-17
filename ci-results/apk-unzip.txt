@@ -1,0 +1,17 @@
+Archive:  app/build/outputs/apk/debug/app-debug.apk
+    testing: META-INF/com/android/build/gradle/app-metadata.properties   OK
+    testing: classes.dex              OK
+    testing: classes2.dex             OK
+    testing: classes3.dex             OK
+    testing: classes4.dex             OK
+    testing: AndroidManifest.xml      OK
+    testing: resources.arsc           OK
+    testing: kotlin/annotation/annotation.kotlin_builtins   OK
+    testing: kotlin/collections/collections.kotlin_builtins   OK
+    testing: kotlin/concurrent/atomics/atomics.kotlin_builtins   OK
+    testing: kotlin/coroutines/coroutines.kotlin_builtins   OK
+    testing: kotlin/internal/internal.kotlin_builtins   OK
+    testing: kotlin/kotlin.kotlin_builtins   OK
+    testing: kotlin/ranges/ranges.kotlin_builtins   OK
+    testing: kotlin/reflect/reflect.kotlin_builtins   OK
+No errors detected in compressed data of app/build/outputs/apk/debug/app-debug.apk.

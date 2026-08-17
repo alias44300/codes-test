@@ -1,0 +1,24 @@
+
+Welcome to Gradle 9.5.0!
+
+Here are the highlights of this release:
+ - Task provenance in reports and failure messages
+ - Type-safe accessors for precompiled Kotlin Settings plugins
+
+For more details see https://docs.gradle.org/9.5.0/release-notes.html
+
+
+------------------------------------------------------------
+Gradle 9.5.0
+------------------------------------------------------------
+
+Build time:    2026-04-28 12:05:30 UTC
+Revision:      3fe117d68f3907790f3809f121aa36303a9151f8
+
+Kotlin:        2.3.20
+Groovy:        4.0.29
+Ant:           Apache Ant(TM) version 1.10.15 compiled on August 25 2024
+Launcher JVM:  17.0.20 (Eclipse Adoptium 17.0.20+8)
+Daemon JVM:    /usr/lib/jvm/temurin-17-jdk-amd64 (no Daemon JVM specified, using current Java home)
+OS:            Linux 6.17.0-1022-azure amd64
+

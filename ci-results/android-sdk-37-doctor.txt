@@ -1,0 +1,5 @@
+ANDROID_SDK_37_READY
+ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+platform=/usr/local/lib/android/sdk/platforms/android-37.0/android.jar
+build_tools=/usr/local/lib/android/sdk/build-tools/36.0.0
+adb=/usr/local/lib/android/sdk/platform-tools/adb

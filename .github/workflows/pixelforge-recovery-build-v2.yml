@@ -50,20 +50,20 @@ jobs:
           echo "sdkmanager=$SDKMANAGER" | tee ci-results/sdkmanager-path.txt
           "$SDKMANAGER" --version | tee ci-results/sdkmanager-version.txt
 
-          # Android 17 / API 37 is currently a preview SDK. Include all
-          # repository channels so sdkmanager can see the API 37 platform.
+          # Android 17 / API 37 is currently exposed by sdkmanager as
+          # platforms;android-37.0. Include preview channels explicitly.
           "$SDKMANAGER" --list --channel=3 --sdk_root="$ANDROID_SDK_ROOT" > ci-results/sdk-packages-all.txt
-          grep -F 'platforms;android-37' ci-results/sdk-packages-all.txt > ci-results/sdk-api37-available.txt
+          grep -F 'platforms;android-37.0' ci-results/sdk-packages-all.txt > ci-results/sdk-api37-available.txt
           grep -F 'build-tools;36.0.0' ci-results/sdk-packages-all.txt > ci-results/sdk-buildtools-available.txt
 
           "$SDKMANAGER" --install \
             'platform-tools' \
-            'platforms;android-37' \
+            'platforms;android-37.0' \
             'build-tools;36.0.0' \
             --channel=3 \
             --sdk_root="$ANDROID_SDK_ROOT"
 
-          PLATFORM_JAR="$ANDROID_SDK_ROOT/platforms/android-37/android.jar"
+          PLATFORM_JAR="$ANDROID_SDK_ROOT/platforms/android-37.0/android.jar"
           BUILD_TOOLS="$ANDROID_SDK_ROOT/build-tools/36.0.0"
           test -s "$PLATFORM_JAR"
           test -x "$BUILD_TOOLS/aapt"

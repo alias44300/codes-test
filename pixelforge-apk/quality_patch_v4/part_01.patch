@@ -1,0 +1,160 @@
+nder stable"),
+     )
+     val betaText = betaReport.encodeText()
+-    assertTrue(betaText.contains("version=0.9.0"), "beta report must carry the build version")
++    assertTrue(betaText.contains("version=0.9.2"), "beta report must carry the build version")
+     assertTrue(betaText.contains("project.proV2Enabled=false"), "beta report must disclose Pro V2 state")
+     assertTrue(betaText.contains("health=OK"), "healthy beta fixture must report OK")
+     assertTrue(!betaText.contains("Device=One\nLab"), "diagnostics must sanitize embedded separators/newlines")
+-    assertTrue(PixelForgeBuildIdentity.VERSION_CODE == 9, "beta build identity version code")
++    assertTrue(PixelForgeBuildIdentity.VERSION_CODE == 11, "beta build identity version code")
+ 
+     val pressuredReport = betaReport.copy(
+         device = betaReport.device.copy(pssKb = 230 * 1024),
+@@ -465,6 +465,18 @@
+     assertTrue(PaletteTools.sortByHue(customPalette).toSet() == customPalette.toSet(), "palette hue sort must preserve colors")
+     assertTrue(PaletteLibrary.presets.all { it.colors.size in 2..128 }, "built-in professional palettes must stay valid")
+ 
++    val fidelityPro = PixelArtPresets.fidelity.settings
++    assertTrue(fidelityPro.targetMaxDimension == 128, "Fidelity Pro must use a deliberate 128 px art grid")
++    assertTrue(fidelityPro.paletteSize == 24, "Fidelity Pro must cap the automatic palette at 24 colors")
++    assertTrue(fidelityPro.ditherMode == DitherMode.NONE, "Fidelity Pro must avoid blanket dithering")
++    assertTrue(fidelityPro.portraitProtection, "Fidelity Pro must protect portrait anchors")
++    assertTrue(fidelityPro.structureDetailEnabled, "Fidelity Pro must use structural detail analysis")
++    assertTrue(fidelityPro.proV2Enabled, "Fidelity Pro must use the Pro V2 refinement pipeline")
++    assertTrue(fidelityPro.proClusterStrength >= 0.80f, "Fidelity Pro must strongly clean micro-clusters")
++    assertTrue(fidelityPro.saturation == 1.03f, "Fidelity Pro must avoid oversaturating skin tones")
++    assertTrue(fidelityPro.contrast == 1.06f, "Fidelity Pro must keep controlled local contrast")
++    assertTrue(fidelityPro.proAntiJaggyStrength <= 0.20f, "Fidelity Pro anti-jaggy must stay conservative")
++
+     PixelArtPresets.all.forEach { preset ->
+         val rendered = PixelArtEngine.render(portraitFixture(), preset.settings)
+         assertTrue(rendered.image.width > 0 && rendered.image.height > 0, "preset ${preset.id} must render")
+--- a/tools/package_beta.sh
++++ b/tools/package_beta.sh
+@@ -11,16 +11,16 @@
+   exit 2
+ fi
+ 
+-out="dist/PixelForgeStudio-0.9.0-beta-debug.apk"
++out="dist/PixelForgeStudio-0.9.2-beta-debug.apk"
+ cp "$apk" "$out"
+-sha256sum "$out" > dist/PixelForgeStudio-0.9.0-beta-debug.sha256
++sha256sum "$out" > dist/PixelForgeStudio-0.9.2-beta-debug.sha256
+ cat > dist/BETA-BUILD-INFO.txt <<INFO
+-PixelForge Studio 0.9.0 Beta
+-versionCode=9
++PixelForge Studio 0.9.2 Beta
++versionCode=11
+ compileSdk=37
+ targetSdk=37
+ golden=255095e99eee33794785f8c2f65828530e11c648194e566a2054e50ca04c895e
+ apk=$(basename "$out")
+ INFO
+-cat dist/PixelForgeStudio-0.9.0-beta-debug.sha256
++cat dist/PixelForgeStudio-0.9.2-beta-debug.sha256
+ echo "BETA PACKAGE: PASS — $out"
+--- a/tools/package_release_artifacts.sh
++++ b/tools/package_release_artifacts.sh
+@@ -7,11 +7,11 @@
+ 
+ artifacts=()
+ if [[ -f app/build/outputs/apk/debug/app-debug.apk ]]; then
+-  cp app/build/outputs/apk/debug/app-debug.apk dist/PixelForgeStudio-0.9.0-debug.apk
+-  artifacts+=(dist/PixelForgeStudio-0.9.0-debug.apk)
++  cp app/build/outputs/apk/debug/app-debug.apk dist/PixelForgeStudio-0.9.2-debug.apk
++  artifacts+=(dist/PixelForgeStudio-0.9.2-debug.apk)
+ fi
+-if [[ -f dist/PixelForgeStudio-0.9.0-release.apk ]]; then
+-  artifacts+=(dist/PixelForgeStudio-0.9.0-release.apk)
++if [[ -f dist/PixelForgeStudio-0.9.2-release.apk ]]; then
++  artifacts+=(dist/PixelForgeStudio-0.9.2-release.apk)
+ fi
+ if [[ ${#artifacts[@]} -eq 0 ]]; then
+   echo "PACKAGE RELEASE: PARTIAL — no APK has been built in this environment."
+@@ -20,8 +20,8 @@
+ 
+ sha256sum "${artifacts[@]}" > dist/CHECKSUMS.sha256
+ cat > dist/BUILD-INFO.txt <<INFO
+-PixelForge Studio 0.9.0
+-versionCode=9
++PixelForge Studio 0.9.2
++versionCode=11
+ compileSdk=37
+ targetSdk=37
+ sourceGolden=255095e99eee33794785f8c2f65828530e11c648194e566a2054e50ca04c895e
+--- a/tools/release_check.sh
++++ b/tools/release_check.sh
+@@ -29,11 +29,11 @@
+ ./tools/secret_scan.sh
+ 
+ echo "== Version =="
+-grep -q 'versionCode = 9' app/build.gradle.kts
+-grep -q 'versionName = "0.9.0"' app/build.gradle.kts
+-grep -q 'const val VERSION_NAME = "0.9.0"' app/src/main/java/com/pixelforge/studio/core/BetaDiagnostics.kt
+-grep -q 'const val VERSION_CODE = 9' app/src/main/java/com/pixelforge/studio/core/BetaDiagnostics.kt
+-echo "Version PASS: 0.9.0 / 9"
++grep -q 'versionCode = 11' app/build.gradle.kts
++grep -q 'versionName = "0.9.2"' app/build.gradle.kts
++grep -q 'const val VERSION_NAME = "0.9.2"' app/src/main/java/com/pixelforge/studio/core/BetaDiagnostics.kt
++grep -q 'const val VERSION_CODE = 11' app/src/main/java/com/pixelforge/studio/core/BetaDiagnostics.kt
++echo "Version PASS: 0.9.2 / 11"
+ 
+ echo "== Gradle distribution integrity =="
+ grep -q 'distributionUrl=https\\://services.gradle.org/distributions/gradle-9.5.0-bin.zip' gradle/wrapper/gradle-wrapper.properties
+--- a/tools/run_beta_device_validation.sh
++++ b/tools/run_beta_device_validation.sh
+@@ -61,7 +61,7 @@
+ fi
+ 
+ {
+-  echo "PixelForge Studio 0.9.0 Beta Device Validation"
++  echo "PixelForge Studio 0.9.2 Beta Device Validation"
+   echo "device=$device"
+   "$adb_bin" -s "$device" shell getprop ro.product.manufacturer | tr -d '\r' | sed 's/^/manufacturer=/'
+   "$adb_bin" -s "$device" shell getprop ro.product.model | tr -d '\r' | sed 's/^/model=/'
+--- a/tools/run_highres_benchmark.sh
++++ b/tools/run_highres_benchmark.sh
+@@ -15,6 +15,7 @@
+   "$ROOT/app/src/main/java/com/pixelforge/studio/core/SourceTransform.kt" \
+   "$ROOT/app/src/main/java/com/pixelforge/studio/core/PixelArtSettings.kt" \
+   "$ROOT/app/src/main/java/com/pixelforge/studio/core/PaletteQuantizer.kt" \
++  "$ROOT/app/src/main/java/com/pixelforge/studio/core/ProPixelArtRefiner.kt" \
+   "$ROOT/app/src/main/java/com/pixelforge/studio/core/PixelArtEngine.kt" \
+   "$ROOT/tools/HighResolutionBenchmark.kt" \
+   -include-runtime -d "$OUT/highres-benchmark.jar"
+--- a/tools/sign_release_apk.sh
++++ b/tools/sign_release_apk.sh
+@@ -4,7 +4,7 @@
+ cd "$ROOT"
+ 
+ input="${1:-app/build/outputs/apk/release/app-release-unsigned.apk}"
+-output="${2:-dist/PixelForgeStudio-0.9.0-release.apk}"
++output="${2:-dist/PixelForgeStudio-0.9.2-release.apk}"
+ sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+ 
+ [[ -f "$input" ]] || { echo "SIGN RELEASE: FAIL — unsigned APK not found: $input" >&2; exit 1; }
+--- a/VERIFICATION_QUALITY_HOTFIX.md
++++ b/VERIFICATION_QUALITY_HOTFIX.md
+@@ -0,0 +1,21 @@
++# PixelForge Studio 0.9.2 — Fidelity Quality Hotfix
++
++## Intent
++
++Replace the simplified recovery rendering experience with the full Milestone-9 PixelForge pipeline and make the default Fidelity preset deliberately pixel-art oriented.
++
++## Fidelity Pro contract
++
++- 128 px maximum art grid
++- 24-color automatic palette
++- no blanket dithering
++- portrait detail protection enabled
++- structural detail analysis enabled
++- Pro V2 perceptual tone matching enabled
++- strong micro-cluster cleanup
++- conservative palette-ramp anti-jaggy refinement
++- legacy engine path remains available through persisted pre-M9 project settings
++
++## Release boundary
++
++An APK is not considered deliverable until core smoke, Android unit tests, `assembleDebug`, APK signature/badging/ZIP checks, and emulator launch smoke all pass on the SDK-37 runner.

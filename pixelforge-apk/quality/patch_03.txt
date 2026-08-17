@@ -1,0 +1,43 @@
+agnostics.kt
+-grep -q 'const val VERSION_CODE = 9' app/src/main/java/com/pixelforge/studio/core/BetaDiagnostics.kt
+-echo "Version PASS: 0.9.0 / 9"
++grep -q 'versionCode = 11' app/build.gradle.kts
++grep -q 'versionName = "0.9.2"' app/build.gradle.kts
++grep -q 'const val VERSION_NAME = "0.9.2"' app/src/main/java/com/pixelforge/studio/core/BetaDiagnostics.kt
++grep -q 'const val VERSION_CODE = 11' app/src/main/java/com/pixelforge/studio/core/BetaDiagnostics.kt
++echo "Version PASS: 0.9.2 / 11"
+ 
+ echo "== Gradle distribution integrity =="
+ grep -q 'distributionUrl=https\\://services.gradle.org/distributions/gradle-9.5.0-bin.zip' gradle/wrapper/gradle-wrapper.properties
+--- a/tools/run_beta_device_validation.sh
++++ b/tools/run_beta_device_validation.sh
+@@ -61,7 +61,7 @@
+ fi
+ 
+ {
+-  echo "PixelForge Studio 0.9.0 Beta Device Validation"
++  echo "PixelForge Studio 0.9.2 Beta Device Validation"
+   echo "device=$device"
+   "$adb_bin" -s "$device" shell getprop ro.product.manufacturer | tr -d '\r' | sed 's/^/manufacturer=/'
+   "$adb_bin" -s "$device" shell getprop ro.product.model | tr -d '\r' | sed 's/^/model=/'
+--- a/tools/run_highres_benchmark.sh
++++ b/tools/run_highres_benchmark.sh
+@@ -15,6 +15,7 @@
+   "$ROOT/app/src/main/java/com/pixelforge/studio/core/SourceTransform.kt" \
+   "$ROOT/app/src/main/java/com/pixelforge/studio/core/PixelArtSettings.kt" \
+   "$ROOT/app/src/main/java/com/pixelforge/studio/core/PaletteQuantizer.kt" \
++  "$ROOT/app/src/main/java/com/pixelforge/studio/core/ProPixelArtRefiner.kt" \
+   "$ROOT/app/src/main/java/com/pixelforge/studio/core/PixelArtEngine.kt" \
+   "$ROOT/tools/HighResolutionBenchmark.kt" \
+   -include-runtime -d "$OUT/highres-benchmark.jar"
+--- a/tools/sign_release_apk.sh
++++ b/tools/sign_release_apk.sh
+@@ -4,7 +4,7 @@
+ cd "$ROOT"
+ 
+ input="${1:-app/build/outputs/apk/release/app-release-unsigned.apk}"
+-output="${2:-dist/PixelForgeStudio-0.9.0-release.apk}"
++output="${2:-dist/PixelForgeStudio-0.9.2-release.apk}"
+ sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+ 
+ [[ -f "$input" ]] || { echo "SIGN RELEASE: FAIL — unsigned APK not found: $input" >&2; exit 1; }

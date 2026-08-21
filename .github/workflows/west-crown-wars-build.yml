@@ -1,0 +1,96 @@
+name: West Crown Wars Signed APK
+
+on:
+  push:
+    branches: [west-crown-wars-apk]
+    paths:
+      - 'west-crown-wars/**'
+      - '.github/workflows/west-crown-wars-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Reconstruct source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, re
+          chunks = sorted(Path('west-crown-wars/source_zip').glob('chunk_*.b64'))
+          if len(chunks) != 10:
+              raise SystemExit(f'Expected 10 chunks, found {len(chunks)}')
+          raw = ''.join(p.read_text(encoding='utf-8') for p in chunks)
+          clean = re.sub(r'[^A-Za-z0-9+/=]', '', raw)
+          data = base64.b64decode(clean, validate=False)
+          archive = Path('west-crown-wars/source.zip')
+          archive.write_bytes(data)
+          print(f'Reconstructed {len(data)} bytes')
+          PY
+          echo '37646a9b4b2fa96db1ae9103bf80dd8f9d009c7052314165aae7eb42bc06b377  west-crown-wars/source.zip' | sha256sum -c -
+          unzip -t west-crown-wars/source.zip
+          rm -rf west-crown-wars/buildsrc
+          mkdir -p west-crown-wars/buildsrc
+          unzip -q west-crown-wars/source.zip -d west-crown-wars/buildsrc
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Create release signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/west-crown-wars/signing"
+          PASS="$(openssl rand -hex 20)"
+          KEYSTORE="$GITHUB_WORKSPACE/west-crown-wars/signing/release.keystore"
+          keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 -alias westcrownwars-v01 -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname 'CN=West Crown Wars, OU=Game, O=West Crown Wars, L=Paris, ST=Ile-de-France, C=FR'
+          echo "WCW_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "WCW_STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+          echo "WCW_KEY_ALIAS=westcrownwars-v01" >> "$GITHUB_ENV"
+          echo "WCW_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
+
+      - name: Build release
+        working-directory: west-crown-wars/buildsrc/west_crown_wars_src
+        run: gradle --no-daemon --stacktrace clean assembleRelease
+
+      - name: Verify package
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT="$GITHUB_WORKSPACE/west-crown-wars/buildsrc/west_crown_wars_src"
+          APK="$PROJECT/app/build/outputs/apk/release/app-release.apk"
+          OUT="$GITHUB_WORKSPACE/west-crown-wars/package"
+          mkdir -p "$OUT"
+          cp "$APK" "$OUT/West_Crown_Wars_v0.1.0_signed.apk"
+          cp "$GITHUB_WORKSPACE/west-crown-wars/source.zip" "$OUT/West_Crown_Wars_v0.1_Android_Source.zip"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT/West_Crown_Wars_v0.1.0_signed.apk" | tee "$OUT/CERTIFICATE_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/West_Crown_Wars_v0.1.0_signed.apk" | tee "$OUT/ZIPALIGN_REPORT.txt"
+          printf '%s\n' 'Package: com.westcrown.wars' 'Version: 0.1.0 (1)' 'Minimum Android: 8.0' 'Build: signed release APK' 'Physical-device test: not performed by CI' > "$OUT/BUILD_REPORT.txt"
+          (cd "$OUT" && sha256sum * > SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: West_Crown_Wars_v0.1_signed_package
+          path: west-crown-wars/package/*
+          if-no-files-found: error
+          retention-days: 30

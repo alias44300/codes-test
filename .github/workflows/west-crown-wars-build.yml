@@ -1,4 +1,4 @@
-name: West Crown Wars Signed APK
+name: Gang to War Signed APK
 
 on:
   push:
@@ -55,6 +55,59 @@ jobs:
           mkdir -p west-crown-wars/buildsrc
           unzip -q west-crown-wars/source.zip -d west-crown-wars/buildsrc
 
+      - name: Rename game to Gang to War
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('west-crown-wars/buildsrc/west_crown_wars_src')
+
+          manifest = root / 'app/src/main/AndroidManifest.xml'
+          s = manifest.read_text(encoding='utf-8').replace('android:label="West Crown Wars"', 'android:label="Gang to War"')
+          manifest.write_text(s, encoding='utf-8')
+
+          gradle = root / 'app/build.gradle'
+          s = gradle.read_text(encoding='utf-8')
+          s = s.replace("namespace 'com.westcrown.wars'", "namespace 'com.gangtowar.game'")
+          s = s.replace("applicationId 'com.westcrown.wars'", "applicationId 'com.gangtowar.game'")
+          gradle.write_text(s, encoding='utf-8')
+
+          old_java = root / 'app/src/main/java/com/westcrown/wars/MainActivity.java'
+          new_java = root / 'app/src/main/java/com/gangtowar/game/MainActivity.java'
+          new_java.parent.mkdir(parents=True, exist_ok=True)
+          s = old_java.read_text(encoding='utf-8')
+          s = s.replace('package com.westcrown.wars;', 'package com.gangtowar.game;')
+          s = s.replace('window.WCWBack ? window.WCWBack() : false;', 'window.GTWBack ? window.GTWBack() : false;')
+          new_java.write_text(s, encoding='utf-8')
+          old_java.unlink()
+
+          html = root / 'app/src/main/assets/index.html'
+          s = html.read_text(encoding='utf-8')
+          s = s.replace('<title>West Crown Wars</title>', '<title>Gang to War</title>')
+          s = s.replace('alt="West Crown Wars"', 'alt="Gang to War"')
+          s = s.replace('alt="Menu West Crown Wars"', 'alt="Menu Gang to War"')
+          s = s.replace("shell('WEST CROWN WARS'", "shell('GANG TO WAR'")
+          s = s.replace('<b>WEST CROWN WARS v0.1</b>', '<b>GANG TO WAR v0.1</b>')
+          s = s.replace('window.WCWBack=()=>back();', 'window.GTWBack=()=>back();')
+          overlay_css = '''\n.gtw-logo{position:absolute;z-index:4;left:12%;top:6.5%;width:76%;height:24.5%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(145deg,rgba(10,6,16,.98),rgba(40,10,56,.97));border:3px solid #f1b82d;clip-path:polygon(5% 0,95% 0,100% 12%,96% 88%,86% 100%,14% 100%,4% 88%,0 12%);box-shadow:0 0 24px #7d2cb4;text-align:center;pointer-events:none}.gtw-logo b{font-size:clamp(46px,15vw,90px);line-height:.72;color:#fff2d5;-webkit-text-stroke:2px #08050c;text-shadow:0 5px 0 #000,0 0 10px #fff}.gtw-logo em{font-size:clamp(20px,6vw,38px);line-height:.8;font-style:normal;color:#f1b82d;text-shadow:0 3px 0 #000}.gtw-logo strong{font-size:clamp(44px,14vw,86px);line-height:.78;color:#9e4cdd;-webkit-text-stroke:2px #08050c;text-shadow:0 5px 0 #000,0 0 12px #6d29a8}\n'''
+          s = s.replace('</style>', overlay_css + '</style>')
+          logo = '<div class="gtw-logo"><b>GANG</b><em>TO</em><strong>WAR</strong></div>'
+          s = s.replace('<section id="splash" class="screen active" onclick="go(\'menu\')"><img class="full-art" src="images/splash.webp" alt="Gang to War"></section>', '<section id="splash" class="screen active" onclick="go(\'menu\')"><img class="full-art" src="images/splash.webp" alt="Gang to War">' + logo + '</section>')
+          s = s.replace('<section id="menu" class="screen"><img class="full-art" src="images/menu.webp" alt="Menu Gang to War">', '<section id="menu" class="screen"><img class="full-art" src="images/menu.webp" alt="Menu Gang to War">' + logo)
+          html.write_text(s, encoding='utf-8')
+
+          leftovers = []
+          for p in root.rglob('*'):
+              if p.is_file() and p.suffix.lower() not in {'.webp','.png','.jpg','.jpeg'}:
+                  try: t = p.read_text(encoding='utf-8')
+                  except Exception: continue
+                  if 'West Crown Wars' in t or 'WEST CROWN WARS' in t or 'com.westcrown.wars' in t:
+                      leftovers.append(str(p))
+          if leftovers:
+              raise SystemExit('Old game name/package remains in: ' + ', '.join(leftovers))
+          PY
+
       - name: Install Android SDK
         shell: bash
         run: |
@@ -68,10 +121,10 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/west-crown-wars/signing"
           PASS="$(openssl rand -hex 20)"
           KEYSTORE="$GITHUB_WORKSPACE/west-crown-wars/signing/release.keystore"
-          keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 -alias westcrownwars-v01 -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname 'CN=West Crown Wars, OU=Game, O=West Crown Wars, L=Paris, ST=Ile-de-France, C=FR'
+          keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 -alias gangtowar-v01 -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname 'CN=Gang to War, OU=Game, O=Gang to War, L=Nantes, ST=Loire-Atlantique, C=FR'
           echo "WCW_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
           echo "WCW_STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
-          echo "WCW_KEY_ALIAS=westcrownwars-v01" >> "$GITHUB_ENV"
+          echo "WCW_KEY_ALIAS=gangtowar-v01" >> "$GITHUB_ENV"
           echo "WCW_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
 
       - name: Build release
@@ -86,16 +139,16 @@ jobs:
           APK="$PROJECT/app/build/outputs/apk/release/app-release.apk"
           OUT="$GITHUB_WORKSPACE/west-crown-wars/package"
           mkdir -p "$OUT"
-          cp "$APK" "$OUT/West_Crown_Wars_v0.1.0_signed.apk"
-          cp "$GITHUB_WORKSPACE/west-crown-wars/source.zip" "$OUT/West_Crown_Wars_v0.1_Android_Source.zip"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT/West_Crown_Wars_v0.1.0_signed.apk" | tee "$OUT/CERTIFICATE_REPORT.txt"
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/West_Crown_Wars_v0.1.0_signed.apk" | tee "$OUT/ZIPALIGN_REPORT.txt"
-          printf '%s\n' 'Package: com.westcrown.wars' 'Version: 0.1.0 (1)' 'Minimum Android: 8.0' 'Build: signed release APK' 'Physical-device test: not performed by CI' > "$OUT/BUILD_REPORT.txt"
+          cp "$APK" "$OUT/Gang_to_War_v0.1.0_signed.apk"
+          cp "$GITHUB_WORKSPACE/west-crown-wars/source.zip" "$OUT/Gang_to_War_v0.1_Android_Source.zip"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT/Gang_to_War_v0.1.0_signed.apk" | tee "$OUT/CERTIFICATE_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/Gang_to_War_v0.1.0_signed.apk" | tee "$OUT/ZIPALIGN_REPORT.txt"
+          printf '%s\n' 'Game: Gang to War' 'Package: com.gangtowar.game' 'Version: 0.1.0 (1)' 'Minimum Android: 8.0' 'Build: signed release APK' 'Physical-device test: not performed by CI' > "$OUT/BUILD_REPORT.txt"
           (cd "$OUT" && sha256sum * > SHA256SUMS.txt)
 
       - uses: actions/upload-artifact@v4
         with:
-          name: West_Crown_Wars_v0.1_signed_package
+          name: Gang_to_War_v0.1_signed_package
           path: west-crown-wars/package/*
           if-no-files-found: error
           retention-days: 30

@@ -1,0 +1,124 @@
+name: Gang to War v0.2 Signed APK
+
+on:
+  push:
+    branches: [west-crown-wars-apk]
+    paths:
+      - 'west-crown-wars/**'
+      - 'gang-to-war-v02/**'
+      - '.github/workflows/west-crown-wars-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'west-crown-wars/**'
+      - 'gang-to-war-v02/**'
+      - '.github/workflows/west-crown-wars-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Reconstruct Android base
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, re
+          chunks = sorted(Path('west-crown-wars/source_zip').glob('chunk_*.b64'))
+          if len(chunks) != 10:
+              raise SystemExit(f'Expected 10 base chunks, found {len(chunks)}')
+          raw = ''.join(p.read_text(encoding='utf-8') for p in chunks)
+          clean = re.sub(r'[^A-Za-z0-9+/=]', '', raw)
+          data = base64.b64decode(clean, validate=False)
+          Path('west-crown-wars/source.zip').write_bytes(data)
+          print(f'Base source: {len(data)} bytes')
+          PY
+          echo '37646a9b4b2fa96db1ae9103bf80dd8f9d009c7052314165aae7eb42bc06b377  west-crown-wars/source.zip' | sha256sum -c -
+          unzip -t west-crown-wars/source.zip
+          rm -rf west-crown-wars/buildsrc
+          mkdir -p west-crown-wars/buildsrc
+          unzip -q west-crown-wars/source.zip -d west-crown-wars/buildsrc
+
+      - name: Apply verified v0.2 game patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat gang-to-war-v02/patch/part_*.b64 > gang-to-war-v02/patch.b64
+          base64 -d gang-to-war-v02/patch.b64 > gang-to-war-v02/patch.zip
+          echo '57b10339eb471f809972748bf4a5a1dbda4d10da253ef66e238be8758655cd2c  gang-to-war-v02/patch.zip' | sha256sum -c -
+          unzip -t gang-to-war-v02/patch.zip
+          unzip -oq gang-to-war-v02/patch.zip -d west-crown-wars/buildsrc
+          rm -rf west-crown-wars/buildsrc/west_crown_wars_src/app/src/main/java/com/westcrown
+          node --check west-crown-wars/buildsrc/west_crown_wars_src/app/src/main/assets/game.js
+          node --check west-crown-wars/buildsrc/west_crown_wars_src/app/src/main/assets/game_data.js
+          grep -q "applicationId 'com.gangtowar.game'" west-crown-wars/buildsrc/west_crown_wars_src/app/build.gradle
+          grep -q "versionName '0.2.0'" west-crown-wars/buildsrc/west_crown_wars_src/app/build.gradle
+          grep -q 'android:label="Gang to War"' west-crown-wars/buildsrc/west_crown_wars_src/app/src/main/AndroidManifest.xml
+          grep -q 'const CANON_CARDS' west-crown-wars/buildsrc/west_crown_wars_src/app/src/main/assets/game_data.js
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Create release signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/gang-to-war-v02/signing"
+          PASS="$(openssl rand -hex 20)"
+          KEYSTORE="$GITHUB_WORKSPACE/gang-to-war-v02/signing/release.keystore"
+          keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 -alias gangtowar-v02 -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname 'CN=Gang to War, OU=Game, O=Gang to War, L=Nantes, ST=Loire-Atlantique, C=FR'
+          echo "WCW_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "WCW_STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+          echo "WCW_KEY_ALIAS=gangtowar-v02" >> "$GITHUB_ENV"
+          echo "WCW_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        working-directory: west-crown-wars/buildsrc/west_crown_wars_src
+        run: gradle --no-daemon --stacktrace clean assembleRelease
+
+      - name: Verify and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT="$GITHUB_WORKSPACE/west-crown-wars/buildsrc/west_crown_wars_src"
+          APK="$PROJECT/app/build/outputs/apk/release/app-release.apk"
+          OUT="$GITHUB_WORKSPACE/gang-to-war-v02/package"
+          mkdir -p "$OUT"
+          cp "$APK" "$OUT/Gang_to_War_v0.2.0_signed.apk"
+          (cd "$GITHUB_WORKSPACE/west-crown-wars/buildsrc" && zip -qr "$OUT/Gang_to_War_v0.2_Android_Source.zip" west_crown_wars_src)
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT/Gang_to_War_v0.2.0_signed.apk" | tee "$OUT/CERTIFICATE_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/Gang_to_War_v0.2.0_signed.apk" | tee "$OUT/ZIPALIGN_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$OUT/Gang_to_War_v0.2.0_signed.apk" | head -20 | tee "$OUT/PACKAGE_REPORT.txt"
+          grep -q "package: name='com.gangtowar.game' versionCode='2' versionName='0.2.0'" "$OUT/PACKAGE_REPORT.txt"
+          printf '%s\n' 'Game: Gang to War' 'Package: com.gangtowar.game' 'Version: 0.2.0 (2)' 'Minimum Android: 8.0' 'Build: signed release APK' 'Static game-data checks: passed before CI' 'Physical-device test: not performed by CI' > "$OUT/BUILD_REPORT.txt"
+          (cd "$OUT" && sha256sum * > SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gang_to_War_v0.2_signed_package
+          path: gang-to-war-v02/package/*
+          if-no-files-found: error
+          retention-days: 30

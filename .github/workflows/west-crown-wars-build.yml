@@ -108,9 +108,12 @@ jobs:
               raise SystemExit('Old game name/package remains in: ' + ', '.join(leftovers))
           PY
 
-      - name: Install Android SDK
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
         shell: bash
         run: |
+          set -euo pipefail
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
 

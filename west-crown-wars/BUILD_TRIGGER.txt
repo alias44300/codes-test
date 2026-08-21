@@ -1,1 +1,1 @@
-West Crown Wars Android signed build retry after source chunk correction. Retry 2.
+West Crown Wars Android signed build retry after source chunk correction. Final trigger.

@@ -6,6 +6,11 @@ on:
     paths:
       - 'west-crown-wars/**'
       - '.github/workflows/west-crown-wars-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'west-crown-wars/**'
+      - '.github/workflows/west-crown-wars-build.yml'
   workflow_dispatch:
 
 permissions:

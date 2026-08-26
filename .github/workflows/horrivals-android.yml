@@ -3,8 +3,6 @@ name: HORRIVALS Android APK
 on:
   push:
     branches: [horrivals-android]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -18,54 +16,35 @@ jobs:
       GODOT_VERSION: 4.7.2
       GODOT_STATUS: stable
       PROJECT_DIR: horrivals/project
-      APK_NAME: HORRIVALS-v0.1.0.apk
+      APK_NAME: HORRIVALS-v0.2.0.apk
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Reconstruct and patch HORRIVALS source
+      - name: Reconstruct HORRIVALS V0.2 source
         shell: bash
         run: |
           set -euo pipefail
           rm -rf horrivals/project
           mkdir -p horrivals/project
+          unzip -t horrivals/source.zip
           unzip -q horrivals/source.zip -d horrivals/project
           test -f horrivals/project/project.godot
           test -f horrivals/project/export_presets.cfg
+          test -f horrivals/project/scripts/main.gd
+          test -f horrivals/project/scripts/card_widget.gd
           python3 - <<'PY'
+          import json
           from pathlib import Path
-          p = Path('horrivals/project/scripts/main.gd')
-          s = p.read_text()
-          fixes = {
-              'var spacing := min(165.0, (w - 100.0) / max(5.0, float(player_cards.size())))': 'var spacing: float = minf(165.0, (w - 100.0) / maxf(5.0, float(player_cards.size())))',
-              'var total := spacing * float(max(0, player_cards.size() - 1)) + CARD_SIZE.x': 'var total: float = spacing * float(maxi(0, player_cards.size() - 1)) + CARD_SIZE.x',
-              'var start_x := (w - total) * 0.5': 'var start_x: float = (w - total) * 0.5',
-              'var x := start_x + i * spacing': 'var x: float = start_x + float(i) * spacing',
-              'var pool_size := min(3, candidates.size())': 'var pool_size: int = mini(3, candidates.size())',
-              'var max_spend := min(MAX_EFFROI_PER_DUEL, ai_effroi)': 'var max_spend: int = mini(MAX_EFFROI_PER_DUEL, ai_effroi)',
-              'selected_effroi = min(selected_effroi + 1, min(MAX_EFFROI_PER_DUEL, player_effroi))': 'selected_effroi = mini(selected_effroi + 1, mini(MAX_EFFROI_PER_DUEL, player_effroi))',
-              'selected_effroi = max(0, selected_effroi - 1)': 'selected_effroi = maxi(0, selected_effroi - 1)',
-              'return min(2, max_spend)': 'return mini(2, max_spend)',
-              'return min(1, max_spend)': 'return mini(1, max_spend)',
-          }
-          for old, new in fixes.items():
-              s = s.replace(old, new)
-          p.write_text(s)
-
-          q = Path('horrivals/project/project.godot')
-          t = q.read_text()
-          setting = 'textures/vram_compression/import_etc2_astc=true'
-          if setting not in t:
-              marker = 'textures/default_filters/use_nearest_mipmap_filter=false'
-              if marker not in t:
-                  raise SystemExit('rendering marker not found')
-              t = t.replace(marker, marker + '\n' + setting)
-          q.write_text(t)
+          cards = json.loads(Path('horrivals/project/data/cards.json').read_text())
+          assert len(cards) == 120, len(cards)
+          assert len({c['id'] for c in cards}) == 120
+          print('Roster validated:', len(cards), 'cards')
           PY
 
       - name: Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -80,8 +59,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          command -v sdkmanager
-          sdkmanager --list_installed
           test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
           test -x "$ANDROID_HOME/build-tools/35.0.0/zipalign"
           test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
@@ -104,26 +81,17 @@ jobs:
           "$GODOT_BIN" --version
           test -f "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}/android_release.apk"
 
-      - name: Create signing keystore
+      - name: Restore persistent prototype signing key
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/horrivals-signing"
-          KEYSTORE="$RUNNER_TEMP/horrivals-signing/horrivals-release.keystore"
-          PASS="$(openssl rand -hex 20)"
-          keytool -genkeypair -v \
-            -keystore "$KEYSTORE" \
-            -storetype PKCS12 \
-            -alias horrivals \
-            -keyalg RSA \
-            -keysize 4096 \
-            -validity 10000 \
-            -storepass "$PASS" \
-            -keypass "$PASS" \
-            -dname 'CN=HORRIVALS, OU=Game, O=HORRIVALS, C=FR'
+          KEYSTORE="$RUNNER_TEMP/horrivals-signing/horrivals-dev.keystore"
+          printf '%s' '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' | base64 -d > "$KEYSTORE"
+          keytool -list -keystore "$KEYSTORE" -storepass 'horrivals-dev-2026' -alias horrivalsdev >/dev/null
           echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
-          echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=horrivals" >> "$GITHUB_ENV"
-          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=horrivalsdev" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=horrivals-dev-2026" >> "$GITHUB_ENV"
 
       - name: Import project and validate scripts
         working-directory: horrivals/project
@@ -133,6 +101,17 @@ jobs:
           "$GODOT_BIN" --headless --editor --import --quit --path . 2>&1 | tee "$RUNNER_TEMP/godot-import.log"
           if grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" "$RUNNER_TEMP/godot-import.log"; then
             echo 'Godot script validation failed.' >&2
+            exit 1
+          fi
+
+      - name: Runtime smoke test
+        working-directory: horrivals/project
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --path . --quit-after 10 2>&1 | tee "$RUNNER_TEMP/godot-runtime.log"
+          if grep -E "SCRIPT ERROR|Invalid call|Invalid argument|ERROR: Failed to load" "$RUNNER_TEMP/godot-runtime.log"; then
+            echo 'Godot runtime smoke test failed.' >&2
             exit 1
           fi
 
@@ -157,22 +136,24 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/$APK_NAME" | tee "$OUT/ZIPALIGN_REPORT.txt"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$OUT/$APK_NAME" | tee "$OUT/APK_BADGING.txt"
           grep -q "package: name='com.horrivals.combat'" "$OUT/APK_BADGING.txt"
+          grep -q "versionName='0.2.0'" "$OUT/APK_BADGING.txt"
           grep -q "application-label:'HORRIVALS'" "$OUT/APK_BADGING.txt"
           printf '%s\n' \
-            'HORRIVALS Android CI build' \
+            'HORRIVALS Android V0.2' \
             'Godot: 4.7.2-stable' \
             'Package: com.horrivals.combat' \
-            'Architecture: arm64-v8a' \
-            'Orientation: landscape' \
-            'Signing: ephemeral CI release certificate' \
-            'Physical-device test: not performed by GitHub Actions' \
+            'Version: 0.2.0 (2)' \
+            'Roster: 120 cards' \
+            'Combat: player chooses ATTAQUE or DÉFENSE every confrontation' \
+            'Prototype signing key: persistent from V0.2 onward' \
+            'Physical-device test: not performed by CI' \
             > "$OUT/BUILD_REPORT.txt"
           (cd "$OUT" && sha256sum * > SHA256SUMS.txt)
 
       - name: Upload APK package
         uses: actions/upload-artifact@v4
         with:
-          name: HORRIVALS_Android_APK
+          name: HORRIVALS_V0.2_Android_APK
           path: horrivals/package/*
           if-no-files-found: error
           retention-days: 30

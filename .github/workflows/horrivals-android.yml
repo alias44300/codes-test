@@ -58,7 +58,7 @@ jobs:
           cards = json.loads(Path('horrivals/project/data/cards.json').read_text())
           assert len(cards) == 120, f'Expected 120 cards, got {len(cards)}'
           assert len({c['id'] for c in cards}) == 120, 'Duplicate card IDs'
-          required = {'id', 'name', 'universe', 'attack', 'defense', 'menace'}
+          required = {'id', 'name', 'universe', 'attack', 'defense', 'threat'}
           for card in cards:
               missing = required - set(card)
               assert not missing, f"{card.get('id', '?')}: missing {missing}"

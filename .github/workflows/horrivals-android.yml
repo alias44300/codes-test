@@ -1,8 +1,8 @@
-name: HORRIVALS Android APK
+name: HORRIVALS V0.3 Android APK
 
 on:
   push:
-    branches: [horrivals-android]
+    branches: [horrivals-v03]
   workflow_dispatch:
 
 permissions:
@@ -16,42 +16,36 @@ jobs:
       GODOT_VERSION: 4.7.2
       GODOT_STATUS: stable
       PROJECT_DIR: horrivals/project
-      APK_NAME: HORRIVALS-v0.2.1.apk
-      SOURCE_SHA256: fc42fefc2f17dc77a5d5afcb08a5905aa33f3dc7686627e86c2cc12b27ddc633
+      APK_NAME: HORRIVALS-v0.3.0.apk
+      SOURCE_SHA256: 296b26ca18302fb4deb90441add10fe3d733e2d38a8e075c990d78398bc40e5c
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Reconstruct and verify HORRIVALS V0.2 source
+      - name: Reconstruct and verify HORRIVALS V0.3 source
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf horrivals/project
-          mkdir -p horrivals/project
+          rm -rf "$PROJECT_DIR"
+          mkdir -p "$PROJECT_DIR"
           cat \
-              horrivals/source_chunks/chunk00_parts/part_0.b64 \
-              horrivals/source_chunks/chunk00_parts/p1_0.b64 \
-              horrivals/source_chunks/chunk00_parts/p1_1_parts/s_0.b64 \
-              horrivals/source_chunks/chunk00_parts/p1_1_parts/s_1.b64 \
-              horrivals/source_chunks/chunk00_parts/p1_1_parts/s_2.b64 \
-              horrivals/source_chunks/chunk00_parts/p1_1_parts/s_3.b64 \
-              horrivals/source_chunks/chunk00_parts/p1_1_parts/s_4.b64 \
-              horrivals/source_chunks/chunk00_parts/part_2.b64 \
-              horrivals/source_chunks/chunk00_parts/part_3.b64 \
-              horrivals/source_chunks/chunk00_parts/part_4.b64 \
-              horrivals/source_chunks/chunk00_parts/part_5.b64 \
-              horrivals/source_chunks/chunk_01.b64 \
-              horrivals/source_chunks/chunk_02.b64 \
-              horrivals/source_chunks/chunk_03.b64 \
-            | tr -d '\n\r\t ' | base64 -d > "$RUNNER_TEMP/horrivals-v02-source.zip"
-          echo "$SOURCE_SHA256  $RUNNER_TEMP/horrivals-v02-source.zip" | sha256sum -c -
-          unzip -t "$RUNNER_TEMP/horrivals-v02-source.zip"
-          unzip -q "$RUNNER_TEMP/horrivals-v02-source.zip" -d horrivals/project
-          test -f horrivals/project/project.godot
-          test -f horrivals/project/export_presets.cfg
-          test -f horrivals/project/scripts/main.gd
-          test -f horrivals/project/scripts/card_widget.gd
+            horrivals/v03/chunk_00.b64 \
+            horrivals/v03/chunk_01.b64 \
+            horrivals/v03/chunk_02.b64 \
+            horrivals/v03/chunk_03.b64 \
+            horrivals/v03/chunk_04.b64 \
+            horrivals/v03/chunk_05.b64 \
+            horrivals/v03/chunk_06_07.b64 \
+            horrivals/v03/chunk_08_09.b64 \
+            | tr -d '\n\r\t ' | base64 -d > "$RUNNER_TEMP/horrivals-v03-source.zip"
+          echo "$SOURCE_SHA256  $RUNNER_TEMP/horrivals-v03-source.zip" | sha256sum -c -
+          unzip -t "$RUNNER_TEMP/horrivals-v03-source.zip"
+          unzip -q "$RUNNER_TEMP/horrivals-v03-source.zip" -d "$PROJECT_DIR"
+          test -f "$PROJECT_DIR/project.godot"
+          test -f "$PROJECT_DIR/export_presets.cfg"
+          test -f "$PROJECT_DIR/scripts/main.gd"
+          test -f "$PROJECT_DIR/scripts/card_widget.gd"
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -64,23 +58,14 @@ jobs:
               assert not missing, f"{card.get('id', '?')}: missing {missing}"
           print('Roster validated:', len(cards), 'cards')
           PY
-
-      - name: Apply V0.2.1 interaction fixes
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat horrivals/patches/v021_main_0.b64 horrivals/patches/v021_main_1.b64 | tr -d '\n\r\t ' | base64 -d | gzip -d > "$RUNNER_TEMP/v021-main.patch"
-          cat horrivals/patches/v021_card.b64 | tr -d '\n\r\t ' | base64 -d | gzip -d > "$RUNNER_TEMP/v021-card.patch"
-          patch --batch --forward "$PROJECT_DIR/scripts/main.gd" < "$RUNNER_TEMP/v021-main.patch"
-          patch --batch --forward "$PROJECT_DIR/scripts/card_widget.gd" < "$RUNNER_TEMP/v021-card.patch"
-          sed -i 's/HORRIVALS-v0.2.0.apk/HORRIVALS-v0.2.1.apk/g' "$PROJECT_DIR/export_presets.cfg"
-          sed -i 's/version\/code=2/version\/code=3/g' "$PROJECT_DIR/export_presets.cfg"
-          sed -i 's/version\/name="0.2.0"/version\/name="0.2.1"/g' "$PROJECT_DIR/export_presets.cfg"
+          grep -q 'STARTER_SIZE' "$PROJECT_DIR/scripts/main.gd"
+          grep -q 'FRISSON' "$PROJECT_DIR/scripts/main.gd"
+          grep -q 'CAUCHEMAR' "$PROJECT_DIR/scripts/main.gd"
+          grep -q 'MAUDIT' "$PROJECT_DIR/scripts/main.gd"
+          grep -q 'STARTING_COINS' "$PROJECT_DIR/scripts/main.gd"
+          grep -q 'version/name="0.3.0"' "$PROJECT_DIR/export_presets.cfg"
+          ! grep -q 'ScrollContainer' "$PROJECT_DIR/scripts/main.gd"
           ! grep -Rni 'effroi' "$PROJECT_DIR/scripts"
-          grep -q 'signal stat_chosen' "$PROJECT_DIR/scripts/card_widget.gd"
-          grep -q '_on_battle_stat_chosen' "$PROJECT_DIR/scripts/main.gd"
-          grep -q 'set_motion_enabled(false)' "$PROJECT_DIR/scripts/main.gd"
-          grep -q 'version/name="0.2.1"' "$PROJECT_DIR/export_presets.cfg"
 
       - name: Java 17
         uses: actions/setup-java@v5
@@ -121,7 +106,6 @@ jobs:
           test -f "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}/android_release.apk"
 
       - name: Restore prototype signing cache
-        id: signing-cache
         uses: actions/cache@v4
         with:
           path: ~/.horrivals-signing
@@ -135,14 +119,9 @@ jobs:
           KEYSTORE="$HOME/.horrivals-signing/horrivals-dev.keystore"
           if [ ! -s "$KEYSTORE" ]; then
             keytool -genkeypair -v \
-              -keystore "$KEYSTORE" \
-              -storetype PKCS12 \
-              -alias horrivalsdev \
-              -keyalg RSA \
-              -keysize 4096 \
-              -validity 10000 \
-              -storepass 'horrivals-dev-2026' \
-              -keypass 'horrivals-dev-2026' \
+              -keystore "$KEYSTORE" -storetype PKCS12 \
+              -alias horrivalsdev -keyalg RSA -keysize 4096 -validity 10000 \
+              -storepass 'horrivals-dev-2026' -keypass 'horrivals-dev-2026' \
               -dname 'CN=HORRIVALS Prototype, OU=Game, O=HORRIVALS, C=FR'
           fi
           keytool -list -keystore "$KEYSTORE" -storepass 'horrivals-dev-2026' -alias horrivalsdev >/dev/null
@@ -156,10 +135,7 @@ jobs:
         run: |
           set -euo pipefail
           "$GODOT_BIN" --headless --editor --import --quit --path . 2>&1 | tee "$RUNNER_TEMP/godot-import.log"
-          if grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" "$RUNNER_TEMP/godot-import.log"; then
-            echo 'Godot script validation failed.' >&2
-            exit 1
-          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script' "$RUNNER_TEMP/godot-import.log"; then exit 1; fi
 
       - name: Runtime smoke test
         working-directory: horrivals/project
@@ -167,10 +143,7 @@ jobs:
         run: |
           set -euo pipefail
           "$GODOT_BIN" --headless --path . --quit-after 10 2>&1 | tee "$RUNNER_TEMP/godot-runtime.log"
-          if grep -E "SCRIPT ERROR|Invalid call|Invalid argument|ERROR: Failed to load" "$RUNNER_TEMP/godot-runtime.log"; then
-            echo 'Godot runtime smoke test failed.' >&2
-            exit 1
-          fi
+          if grep -E 'SCRIPT ERROR|Invalid call|Invalid argument|ERROR: Failed to load' "$RUNNER_TEMP/godot-runtime.log"; then exit 1; fi
 
       - name: Export signed Android APK
         working-directory: horrivals/project
@@ -193,18 +166,19 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/$APK_NAME" | tee "$OUT/ZIPALIGN_REPORT.txt"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$OUT/$APK_NAME" | tee "$OUT/APK_BADGING.txt"
           grep -q "package: name='com.horrivals.combat'" "$OUT/APK_BADGING.txt"
-          grep -q "versionName='0.2.1'" "$OUT/APK_BADGING.txt"
+          grep -q "versionName='0.3.0'" "$OUT/APK_BADGING.txt"
           grep -q "application-label:'HORRIVALS'" "$OUT/APK_BADGING.txt"
           printf '%s\n' \
-            'HORRIVALS Android V0.2.1' \
+            'HORRIVALS Android V0.3.0' \
             'Godot: 4.7.2-stable' \
             'Package: com.horrivals.combat' \
-            'Version: 0.2.1 (3)' \
+            'Version: 0.3.0 (4)' \
             'Roster: 120 cards' \
-            'Effroi: removed' \
-            'Collection/Team: container-card motion bug disabled' \
-            'Combat: ATTAQUE or DÉFENSE chosen by touching the played card stat zone' \
-            'Signing: persistent prototype certificate' \
+            'Starter: 5 unique cards, first team auto-created' \
+            'Packs: FRISSON 100 / CAUCHEMAR 250 / MAUDIT 500, one card each' \
+            'Duplicates: converted into coins' \
+            'Navigation: paged horizontal touch + bottom dock, no side scrollbar' \
+            'Combat: ATTAQUE or DÉFENSE directly on played card' \
             'Runtime: GitHub headless smoke test passed' \
             'Physical-device test: not performed by CI' \
             > "$OUT/BUILD_REPORT.txt"
@@ -213,7 +187,7 @@ jobs:
       - name: Upload APK package
         uses: actions/upload-artifact@v4
         with:
-          name: HORRIVALS_V0.2.1_Android_APK
+          name: HORRIVALS_V0.3.0_Android_APK
           path: horrivals/package/*
           if-no-files-found: error
           retention-days: 30

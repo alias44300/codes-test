@@ -1,0 +1,139 @@
+name: HORRIVALS Android APK
+
+on:
+  push:
+    branches: [horrivals-android]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GODOT_VERSION: 4.7.2
+      GODOT_STATUS: stable
+      PROJECT_DIR: horrivals/project
+      APK_NAME: HORRIVALS-v0.1.0.apk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reconstruct HORRIVALS source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf horrivals/project
+          mkdir -p horrivals/project
+          unzip -q horrivals/source.zip -d horrivals/project
+          test -f horrivals/project/project.godot
+          test -f horrivals/project/export_presets.cfg
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK components
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Download Godot and matching export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-${GODOT_STATUS}"
+          curl -fL --retry 3 "$BASE/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip" -o /tmp/godot.zip
+          curl -fL --retry 3 "$BASE/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz" -o /tmp/templates.tpz
+          mkdir -p "$HOME/godot-bin" "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}"
+          unzip -q /tmp/godot.zip -d "$HOME/godot-bin"
+          GODOT_BIN="$(find "$HOME/godot-bin" -maxdepth 1 -type f -name 'Godot_*linux.x86_64' | head -1)"
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/templates.tpz -d /tmp/godot-templates
+          cp -a /tmp/godot-templates/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}/"
+          "$GODOT_BIN" --version
+          test -f "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}/android_release.apk"
+
+      - name: Create signing keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/horrivals-signing"
+          KEYSTORE="$RUNNER_TEMP/horrivals-signing/horrivals-release.keystore"
+          PASS="$(openssl rand -hex 20)"
+          keytool -genkeypair -v \
+            -keystore "$KEYSTORE" \
+            -storetype PKCS12 \
+            -alias horrivals \
+            -keyalg RSA \
+            -keysize 4096 \
+            -validity 10000 \
+            -storepass "$PASS" \
+            -keypass "$PASS" \
+            -dname 'CN=HORRIVALS, OU=Game, O=HORRIVALS, C=FR'
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=horrivals" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+
+      - name: Import project and validate scripts
+        working-directory: horrivals/project
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --editor --import --quit --path . 2>&1 | tee "$RUNNER_TEMP/godot-import.log"
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" "$RUNNER_TEMP/godot-import.log"; then
+            echo 'Godot script validation failed.' >&2
+            exit 1
+          fi
+
+      - name: Export signed Android APK
+        working-directory: horrivals/project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          "$GODOT_BIN" --headless --path . --export-release Android "build/$APK_NAME" 2>&1 | tee "$RUNNER_TEMP/godot-export.log"
+          test -s "build/$APK_NAME"
+
+      - name: Verify APK signature, alignment and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$GITHUB_WORKSPACE/horrivals/project/build/$APK_NAME"
+          OUT="$GITHUB_WORKSPACE/horrivals/package"
+          mkdir -p "$OUT"
+          cp "$APK" "$OUT/$APK_NAME"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT/$APK_NAME" | tee "$OUT/CERTIFICATE_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/$APK_NAME" | tee "$OUT/ZIPALIGN_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$OUT/$APK_NAME" | tee "$OUT/APK_BADGING.txt"
+          grep -q "package: name='com.horrivals.combat'" "$OUT/APK_BADGING.txt"
+          grep -q "application-label:'HORRIVALS'" "$OUT/APK_BADGING.txt"
+          printf '%s\n' \
+            'HORRIVALS Android CI build' \
+            'Godot: 4.7.2-stable' \
+            'Package: com.horrivals.combat' \
+            'Architecture: arm64-v8a' \
+            'Orientation: landscape' \
+            'Signing: ephemeral CI release certificate' \
+            'Physical-device test: not performed by GitHub Actions' \
+            > "$OUT/BUILD_REPORT.txt"
+          (cd "$OUT" && sha256sum * > SHA256SUMS.txt)
+
+      - name: Upload APK package
+        uses: actions/upload-artifact@v4
+        with:
+          name: HORRIVALS_Android_APK
+          path: horrivals/package/*
+          if-no-files-found: error
+          retention-days: 30

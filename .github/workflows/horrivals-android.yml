@@ -24,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Reconstruct HORRIVALS source
+      - name: Reconstruct and patch HORRIVALS source
         shell: bash
         run: |
           set -euo pipefail
@@ -33,6 +33,26 @@ jobs:
           unzip -q horrivals/source.zip -d horrivals/project
           test -f horrivals/project/project.godot
           test -f horrivals/project/export_presets.cfg
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('horrivals/project/scripts/main.gd')
+          s = p.read_text()
+          fixes = {
+              'var spacing := min(165.0, (w - 100.0) / max(5.0, float(player_cards.size())))': 'var spacing: float = minf(165.0, (w - 100.0) / maxf(5.0, float(player_cards.size())))',
+              'var total := spacing * float(max(0, player_cards.size() - 1)) + CARD_SIZE.x': 'var total: float = spacing * float(maxi(0, player_cards.size() - 1)) + CARD_SIZE.x',
+              'var start_x := (w - total) * 0.5': 'var start_x: float = (w - total) * 0.5',
+              'var x := start_x + i * spacing': 'var x: float = start_x + float(i) * spacing',
+              'var pool_size := min(3, candidates.size())': 'var pool_size: int = mini(3, candidates.size())',
+              'var max_spend := min(MAX_EFFROI_PER_DUEL, ai_effroi)': 'var max_spend: int = mini(MAX_EFFROI_PER_DUEL, ai_effroi)',
+              'selected_effroi = min(selected_effroi + 1, min(MAX_EFFROI_PER_DUEL, player_effroi))': 'selected_effroi = mini(selected_effroi + 1, mini(MAX_EFFROI_PER_DUEL, player_effroi))',
+              'selected_effroi = max(0, selected_effroi - 1)': 'selected_effroi = maxi(0, selected_effroi - 1)',
+              'return min(2, max_spend)': 'return mini(2, max_spend)',
+              'return min(1, max_spend)': 'return mini(1, max_spend)',
+          }
+          for old, new in fixes.items():
+              s = s.replace(old, new)
+          p.write_text(s)
+          PY
 
       - name: Java 17
         uses: actions/setup-java@v4

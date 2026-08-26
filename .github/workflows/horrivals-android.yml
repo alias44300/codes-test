@@ -52,6 +52,16 @@ jobs:
           for old, new in fixes.items():
               s = s.replace(old, new)
           p.write_text(s)
+
+          q = Path('horrivals/project/project.godot')
+          t = q.read_text()
+          setting = 'textures/vram_compression/import_etc2_astc=true'
+          if setting not in t:
+              marker = 'textures/default_filters/use_nearest_mipmap_filter=false'
+              if marker not in t:
+                  raise SystemExit('rendering marker not found')
+              t = t.replace(marker, marker + '\n' + setting)
+          q.write_text(t)
           PY
 
       - name: Java 17

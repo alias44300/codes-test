@@ -29,7 +29,18 @@ jobs:
           set -euo pipefail
           rm -rf horrivals/project
           mkdir -p horrivals/project
-          cat horrivals/source_chunks/chunk_00.b64 \
+          cat \
+              horrivals/source_chunks/chunk00_parts/part_0.b64 \
+              horrivals/source_chunks/chunk00_parts/p1_0.b64 \
+              horrivals/source_chunks/chunk00_parts/p1_1_parts/s_0.b64 \
+              horrivals/source_chunks/chunk00_parts/p1_1_parts/s_1.b64 \
+              horrivals/source_chunks/chunk00_parts/p1_1_parts/s_2.b64 \
+              horrivals/source_chunks/chunk00_parts/p1_1_parts/s_3.b64 \
+              horrivals/source_chunks/chunk00_parts/p1_1_parts/s_4.b64 \
+              horrivals/source_chunks/chunk00_parts/part_2.b64 \
+              horrivals/source_chunks/chunk00_parts/part_3.b64 \
+              horrivals/source_chunks/chunk00_parts/part_4.b64 \
+              horrivals/source_chunks/chunk00_parts/part_5.b64 \
               horrivals/source_chunks/chunk_01.b64 \
               horrivals/source_chunks/chunk_02.b64 \
               horrivals/source_chunks/chunk_03.b64 \

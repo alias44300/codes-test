@@ -93,7 +93,7 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK"
           sha256sum "$APK" | tee android/app/build/outputs/apk/debug/SHA256SUMS.txt
 
-      - name: Publish installable APK
+      - name: Publish installable APK and audit captures
         uses: actions/upload-artifact@v4
         with:
           name: HORRIVALS-GameStudio-Android
@@ -102,3 +102,6 @@ jobs:
           path: |
             horrivals/android/app/build/outputs/apk/debug/HORRIVALS-V4-AUDIT.apk
             horrivals/android/app/build/outputs/apk/debug/SHA256SUMS.txt
+            horrivals/audit-home.png
+            horrivals/audit-combat.png
+            horrivals/audit-illustrations.png

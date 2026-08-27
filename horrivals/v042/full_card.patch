@@ -1,31 +1,66 @@
 --- scripts/card_widget.gd
 +++ scripts/card_widget.gd
-@@ -107,8 +107,8 @@
-         add_child(art)
+@@ -16,6 +16,7 @@
+ var hovered: bool = false
+ var motion_enabled: bool = true
+ var stat_choice_enabled: bool = false
++var full_art: bool = false
+ var stat_panel_y: float = 0.0
+ var last_activation_msec: int = 0
+ var pointer_down: bool = false
+@@ -32,6 +33,7 @@
+ func setup(card_data: Dictionary, card_size: Vector2, is_face_up: bool = true, compact_mode: bool = false) -> void:
+     data = card_data.duplicate(true)
+     compact = compact_mode
++    full_art = bool(data.get("full_art", false))
+     face_up = is_face_up
+     custom_minimum_size = card_size
+     size = card_size
+@@ -81,6 +83,31 @@
+     for child: Node in get_children():
+         child.queue_free()
  
-         stat_panel_y = size.y * float(data.get("stat_hit_y", 0.78))
--        _build_full_art_stat_glows()
--        _build_selection_border(5 if not compact else 3)
-+        # No software frame, labels, duplicate stats or visible stat overlays on finished card artwork.
-+        # stat_panel_y remains only for invisible touch hit-testing in combat.
-         _build_back()
-         return
++    back_layer = null
++    selection_border = null
++    name_label = null
++    attack_stat_box = null
++    defense_stat_box = null
++    attack_choice_label = null
++    defense_choice_label = null
++
++    var art_path: String = str(data.get("art", ""))
++    var has_art: bool = _art_exists(art_path)
++
++    # A full_art image is already the finished card, including ID, name and ATT/DEF.
++    # Show the whole 2:3 image untouched. No software frame, duplicate labels or stats.
++    if full_art and has_art:
++        var finished_art: TextureRect = TextureRect.new()
++        finished_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
++        finished_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
++        finished_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
++        finished_art.texture = _load_art_texture(art_path)
++        finished_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
++        add_child(finished_art)
++        stat_panel_y = size.y * float(data.get("stat_hit_y", 0.78))
++        _build_back()
++        return
++
+     var frame: Panel = Panel.new()
+     frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+     frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+@@ -97,8 +124,7 @@
+     frame.add_theme_stylebox_override("panel", fs)
+     add_child(frame)
  
-@@ -442,9 +442,9 @@
-     if defense_choice_label != null:
-         defense_choice_label.visible = stat_choice_enabled
-     if attack_choice_glow != null:
--        attack_choice_glow.visible = stat_choice_enabled
-+        attack_choice_glow.visible = stat_choice_enabled and not full_art
-     if defense_choice_glow != null:
--        defense_choice_glow.visible = stat_choice_enabled
-+        defense_choice_glow.visible = stat_choice_enabled and not full_art
- 
- func set_home(pos: Vector2, rot: float = 0.0, scl: Vector2 = Vector2.ONE, snap: bool = false) -> void:
-     home_position = pos
+-    var art_path: String = str(data.get("art", ""))
+-    if _art_exists(art_path):
++    if has_art:
+         var art: TextureRect = TextureRect.new()
+         art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+         art.offset_left = 4
 --- scripts/main.gd
 +++ scripts/main.gd
-@@ -1387,62 +1387,43 @@
+@@ -912,62 +912,43 @@
  func _show_large_card(card_data: Dictionary, context: String) -> void:
      var overlay: ColorRect = ColorRect.new()
      overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -36,7 +71,7 @@
      screen_layer.add_child(overlay)
  
 -    var card_size: Vector2 = Vector2(350, 525)
-+    # The user's artwork IS the card. Show the complete original 2:3 object, nothing else.
++    # The artwork is the complete card. Use almost the whole screen height and preserve 2:3.
 +    var max_h: float = size.y - 52.0
 +    var card_h: float = minf(654.0, max_h)
 +    var card_w: float = card_h * (2.0 / 3.0)
@@ -104,7 +139,7 @@
          action.pressed.connect(_large_card_team_action.bind(id, overlay))
          overlay.add_child(action)
  
-@@ -1900,7 +1881,7 @@
+@@ -1404,7 +1385,7 @@
          selected_view.scale = Vector2(1.95, 1.95)
      selected_view.set_stat_choice_enabled(true)
      battle_locked = false

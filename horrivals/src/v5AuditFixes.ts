@@ -5,14 +5,13 @@ import { CardView } from './game/view/CardView';
 import type { CardData } from './game/types';
 import './v5-audit.css';
 
-type ShellAny = AppShell & {
+type ShellAny = {
   root: HTMLElement;
   roster: CardData[];
   artStore: { importFiles: (files: FileList | File[], knownIds: Set<string>) => Promise<{ imported: string[]; rejected: string[] }> };
   showMenu: () => void;
   showCollection: () => void;
   cardTile: (card: CardData, selected?: boolean, extraClass?: string, index?: number, eager?: boolean) => HTMLElement;
-  escape: (value: string) => string;
   __importManagerActive?: boolean;
 };
 
@@ -96,7 +95,7 @@ function pickPhoto(shell: ShellAny, cardId: string, returnToManager: boolean): v
       if (!original) return;
       const ext = (original.name.split('.').pop() || 'png').toLowerCase();
       const renamed = new File([original], `${cardId}.${ext}`, { type: original.type || 'image/png' });
-      const result = await shell.artStore.importFiles([renamed], new Set(shell.roster.map(c => c.id)));
+      const result = await shell.artStore.importFiles([renamed], new Set(shell.roster.map((c: CardData) => c.id)));
       if (result.imported.includes(cardId)) toast(`${cardId} · illustration ajoutée`);
       else toast(`Import impossible pour ${cardId}`);
     } catch (error) {
@@ -142,12 +141,12 @@ function showImportManager(shell: ShellAny): void {
   const render = () => {
     const q = search.value.trim().toLowerCase();
     grid.innerHTML = '';
-    const cards = shell.roster.filter(card => {
+    const cards = shell.roster.filter((card: CardData) => {
       const series = card.id.startsWith('SCI-') ? 'SCI' : 'HOR';
       return (filter === 'all' || filter === series) && (!q || `${card.id} ${card.name} ${card.universe}`.toLowerCase().includes(q));
     });
     const frag = document.createDocumentFragment();
-    cards.forEach(card => {
+    cards.forEach((card: CardData) => {
       const tile = shell.cardTile(card, false, 'import-pick-card', 0, false);
       tile.setAttribute('aria-label', `Ajouter une illustration pour ${card.name}`);
       tile.addEventListener('click', () => pickPhoto(shell, card.id, true));
@@ -157,9 +156,9 @@ function showImportManager(shell: ShellAny): void {
   };
 
   search.addEventListener('input', render);
-  shell.root.querySelectorAll('[data-import-filter]').forEach(button => button.addEventListener('click', () => {
+  shell.root.querySelectorAll('[data-import-filter]').forEach((button: Element) => button.addEventListener('click', () => {
     filter = (button as HTMLElement).dataset.importFilter || 'all';
-    shell.root.querySelectorAll('[data-import-filter]').forEach(b => b.classList.toggle('active', b === button));
+    shell.root.querySelectorAll('[data-import-filter]').forEach((b: Element) => b.classList.toggle('active', b === button));
     render();
   }));
   shell.root.querySelector('[data-import-back]')!.addEventListener('click', () => {
@@ -182,7 +181,7 @@ export function installV5AuditFixes(): void {
 
   const shellProto = AppShell.prototype as any;
   shellProto.openImport = function(onlyId?: string) {
-    const shell = this as ShellAny;
+    const shell = this as unknown as ShellAny;
     if (onlyId) {
       pickPhoto(shell, onlyId, false);
       return;

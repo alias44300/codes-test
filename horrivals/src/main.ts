@@ -6,12 +6,8 @@ import { ArenaScene } from './game/scenes/ArenaScene';
 import { AppShell } from './game/ui/AppShell';
 import { installShowFx } from './showFx';
 import { installV5AuditFixes } from './v5AuditFixes';
-import { installV5ShellEnhancements } from './v5ShellEnhancements';
 import './styles.css';
-import './rebuild.css';
-import './supercard.css';
-import './supercard-controls.css';
-import './audit-v4.css';
+import './supercard-input-fix.css';
 import { installSupercardRebuild } from './supercardRebuild';
 
 async function boot(): Promise<void> {
@@ -57,7 +53,6 @@ async function boot(): Promise<void> {
     game.scene.start('arena', { roster, team: [...team], artStore });
   });
 
-  installV5ShellEnhancements(shell, uiRoot);
   html.classList.remove('battle-active');
   shell.showSplash();
 

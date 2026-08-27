@@ -32,6 +32,9 @@ test('packs, collection, team, and options are navigable', async ({ page }) => {
   await expect(page.locator('[data-pack]')).toHaveCount(3);
   await page.locator('[data-pack="frisson"]').click();
   await expect(page.locator('.pack-reveal-zone.revealed')).toBeVisible();
+  await expect(page.locator('.pack-close')).toBeVisible();
+  await page.locator('.pack-close').click();
+  await expect(page.locator('.pack-reveal-zone.revealed')).toHaveCount(0);
   await page.locator('[data-back]').click();
 
   await page.getByRole('button', { name: /ÉQUIPE/i }).click();
@@ -46,4 +49,31 @@ test('packs, collection, team, and options are navigable', async ({ page }) => {
 
   await page.getByRole('button', { name: /OPTIONS/i }).click();
   await expect(page.locator('.options-screen')).toBeVisible();
+});
+
+test('SuperCard-impact home fits a 1536x709 landscape viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 1536, height: 709 });
+  await page.goto('/');
+  await page.locator('.game-splash').click();
+
+  const home = page.locator('.premium-home');
+  await expect(home).toBeVisible();
+  await expect(page.locator('.premium-team .collection-card')).toHaveCount(5);
+
+  const important = [
+    page.locator('.premium-brand'),
+    page.getByRole('button', { name: /COMBATTRE/i }),
+    page.locator('.premium-team'),
+    page.getByRole('button', { name: /PACKS/i }),
+    page.getByRole('button', { name: /COLLECTION/i }),
+  ];
+
+  for (const locator of important) {
+    const box = await locator.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(-2);
+    expect(box!.y).toBeGreaterThanOrEqual(-2);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(1538);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(711);
+  }
 });

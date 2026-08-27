@@ -17,8 +17,9 @@ async function boot(): Promise<void> {
     parent: 'game-canvas',
     width: DESIGN_WIDTH,
     height: DESIGN_HEIGHT,
-    backgroundColor: '#09070d',
+    backgroundColor: '#06070b',
     render: { antialias: true, pixelArt: false, roundPixels: false },
+    fps: { target: 60, min: 30 },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: DESIGN_WIDTH, height: DESIGN_HEIGHT },
     scene: [ArenaScene],
   });
@@ -35,9 +36,20 @@ async function boot(): Promise<void> {
   });
 
   const rotate = document.getElementById('rotate-warning')!;
-  const updateOrientation = () => rotate.classList.toggle('visible', window.innerHeight > window.innerWidth);
-  updateOrientation();
-  window.addEventListener('resize', updateOrientation);
+  let frame = 0;
+  const refreshViewport = () => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+      rotate.classList.toggle('visible', window.innerHeight > window.innerWidth);
+      document.documentElement.style.setProperty('--viewport-height', `${window.innerHeight}px`);
+      game.scale.refresh();
+    });
+  };
+
+  refreshViewport();
+  window.addEventListener('resize', refreshViewport, { passive: true });
+  window.addEventListener('orientationchange', refreshViewport, { passive: true });
+  window.visualViewport?.addEventListener('resize', refreshViewport, { passive: true });
 }
 
 boot().catch(err => {

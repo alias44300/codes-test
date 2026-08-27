@@ -1,0 +1,304 @@
+diff -ruN v040v03_final/export_presets.cfg v041_largecards/export_presets.cfg
+--- v040v03_final/export_presets.cfg	2026-08-27 09:37:55.816680852 +0000
++++ v041_largecards/export_presets.cfg	2026-08-27 10:02:55.771383432 +0000
+@@ -9,7 +9,7 @@
+ export_filter="all_resources"
+ include_filter=""
+ exclude_filter=""
+-export_path="build/HORRIVALS-v0.4.0-import.apk"
++export_path="build/HORRIVALS-v0.4.1-largecards.apk"
+ patches=PackedStringArray()
+ encryption_include_filters=""
+ encryption_exclude_filters=""
+@@ -33,8 +33,8 @@
+ architectures/arm64-v8a=true
+ architectures/x86=false
+ architectures/x86_64=false
+-version/code=8
+-version/name="0.4.0"
++version/code=9
++version/name="0.4.1"
+ package/unique_name="com.horrivals.combat"
+ package/name="HORRIVALS"
+ package/signed=true
+diff -ruN v040v03_final/scripts/card_widget.gd v041_largecards/scripts/card_widget.gd
+--- v040v03_final/scripts/card_widget.gd	2026-08-27 09:37:55.816496744 +0000
++++ v041_largecards/scripts/card_widget.gd	2026-08-27 10:03:29.504348545 +0000
+@@ -101,7 +101,7 @@
+         var art: TextureRect = TextureRect.new()
+         art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+         art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+-        art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
++        art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+         art.texture = _load_art_texture(art_path)
+         art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+         add_child(art)
+diff -ruN v040v03_final/scripts/main.gd v041_largecards/scripts/main.gd
+--- v040v03_final/scripts/main.gd	2026-08-27 09:37:55.815402024 +0000
++++ v041_largecards/scripts/main.gd	2026-08-27 10:03:29.502548824 +0000
+@@ -4,9 +4,9 @@
+ const TEAM_SIZE: int = 5
+ const STARTER_SIZE: int = 5
+ const STARTING_COINS: int = 250
+-const COLLECTION_PAGE_SIZE: int = 12
+-const TEAM_PAGE_SIZE: int = 8
+-const IMPORT_PAGE_SIZE: int = 12
++const COLLECTION_PAGE_SIZE: int = 5
++const TEAM_PAGE_SIZE: int = 5
++const IMPORT_PAGE_SIZE: int = 5
+ 
+ var roster: Array[Dictionary] = []
+ var team_ids: Array[String] = []
+@@ -1208,10 +1208,10 @@
+     screen_layer.add_child(holder)
+ 
+     var grid: GridContainer = GridContainer.new()
+-    grid.columns = 6
+-    grid.position = Vector2(0, 0)
++    grid.columns = 5
++    grid.position = Vector2(maxf(0.0, (holder.size.x - 1030.0) * 0.5), 0)
+     grid.size = holder.size
+-    grid.add_theme_constant_override("h_separation", 16)
++    grid.add_theme_constant_override("h_separation", 20)
+     grid.add_theme_constant_override("v_separation", 12)
+     holder.add_child(grid)
+ 
+@@ -1220,7 +1220,7 @@
+     for i: int in range(start, finish):
+         var d: Dictionary = roster[i]
+         var c: CardWidget = CardWidgetScript.new()
+-        c.setup(d, Vector2(112, 168), true, true)
++        c.setup(d, Vector2(190, 285), true, false)
+         c.set_motion_enabled(false)
+         c.pressed_card.connect(_on_import_slot_pressed)
+         c.set_selected(str(d.get("id", "")) == import_target_id)
+@@ -1384,6 +1384,83 @@
+     _show_import()
+     _flash_message("Illustration personnelle retirée pour %s." % import_target_id)
+ 
++func _show_large_card(card_data: Dictionary, context: String) -> void:
++    var overlay: ColorRect = ColorRect.new()
++    overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
++    overlay.color = Color(0.015, 0.012, 0.02, 0.94)
++    overlay.mouse_filter = Control.MOUSE_FILTER_STOP
++    overlay.z_index = 900
++    screen_layer.add_child(overlay)
++
++    var card_size: Vector2 = Vector2(350, 525)
++    var large: CardWidget = CardWidgetScript.new()
++    large.setup(card_data, card_size, true, false)
++    large.position = Vector2(size.x * 0.5 - card_size.x * 0.5, 72)
++    large.set_motion_enabled(false)
++    large.set_selectable(false)
++    large.z_index = 910
++    overlay.add_child(large)
++
++    var close: Button = Button.new()
++    close.position = Vector2(size.x - 92, 28)
++    close.size = Vector2(58, 58)
++    close.text = "✕"
++    close.add_theme_font_size_override("font_size", 25)
++    close.focus_mode = Control.FOCUS_NONE
++    close.pressed.connect(func() -> void: overlay.queue_free())
++    overlay.add_child(close)
++
++    var id: String = str(card_data.get("id", ""))
++    var title: Label = Label.new()
++    title.position = Vector2(30, 34)
++    title.size = Vector2(360, 70)
++    title.text = "%s\n%s" % [id, str(card_data.get("name", "CARTE")).to_upper()]
++    title.add_theme_font_size_override("font_size", 18)
++    title.add_theme_color_override("font_color", Color("f3edf3"))
++    overlay.add_child(title)
++
++    var meta: Label = Label.new()
++    meta.position = Vector2(32, 122)
++    meta.size = Vector2(300, 150)
++    meta.text = "ATTAQUE  %d\nDÉFENSE  %d\nMENACE   %d" % [int(card_data.get("attack", 0)), int(card_data.get("defense", 0)), int(card_data.get("threat", 0))]
++    meta.add_theme_font_size_override("font_size", 18)
++    meta.add_theme_color_override("font_color", Color("cfc4d0"))
++    overlay.add_child(meta)
++
++    var hint: Label = Label.new()
++    hint.position = Vector2(size.x - 330, 122)
++    hint.size = Vector2(280, 150)
++    hint.text = "VUE GRAND FORMAT\n2:3\n\nL'illustration reste entière, sans recadrage volontaire."
++    hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
++    hint.add_theme_font_size_override("font_size", 15)
++    hint.add_theme_color_override("font_color", Color("cfc4d0"))
++    overlay.add_child(hint)
++
++    if context == "team":
++        var action: Button = Button.new()
++        action.position = Vector2(size.x - 330, 330)
++        action.size = Vector2(280, 58)
++        action.text = "RETIRER DE L'ÉQUIPE" if team_ids.has(id) else "AJOUTER À L'ÉQUIPE"
++        action.add_theme_font_size_override("font_size", 15)
++        action.focus_mode = Control.FOCUS_NONE
++        action.pressed.connect(_large_card_team_action.bind(id, overlay))
++        overlay.add_child(action)
++
++func _large_card_team_action(id: String, overlay: Control) -> void:
++    if team_ids.has(id):
++        team_ids.erase(id)
++    elif team_ids.size() < TEAM_SIZE:
++        team_ids.append(id)
++    else:
++        _flash_message("Équipe complète : retire une carte avant d'en ajouter une autre.")
++        return
++    _save()
++    if vibration_enabled:
++        Input.vibrate_handheld(20)
++    if is_instance_valid(overlay):
++        overlay.queue_free()
++    _show_team()
++
+ func _show_collection() -> void:
+     current_screen = "collection"
+     var pages: int = maxi(1, int(ceil(float(roster.size()) / float(COLLECTION_PAGE_SIZE))))
+@@ -1396,10 +1473,10 @@
+     screen_layer.add_child(holder)
+ 
+     var grid: GridContainer = GridContainer.new()
+-    grid.columns = 6
+-    grid.position = Vector2(0, 0)
++    grid.columns = 5
++    grid.position = Vector2(maxf(0.0, (holder.size.x - 1030.0) * 0.5), 8)
+     grid.size = holder.size
+-    grid.add_theme_constant_override("h_separation", 16)
++    grid.add_theme_constant_override("h_separation", 20)
+     grid.add_theme_constant_override("v_separation", 16)
+     holder.add_child(grid)
+ 
+@@ -1408,7 +1485,7 @@
+     for i: int in range(start, finish):
+         var d: Dictionary = roster[i]
+         var c: CardWidget = CardWidgetScript.new()
+-        c.setup(d, Vector2(118, 177), true, true)
++        c.setup(d, Vector2(190, 285), true, false)
+         c.set_motion_enabled(false)
+         c.pressed_card.connect(_on_collection_card_pressed)
+         if not _is_owned(str(d.get("id", ""))):
+@@ -1427,12 +1504,7 @@
+     _build_pager("collection", collection_page, pages)
+ 
+ func _on_collection_card_pressed(card: CardWidget) -> void:
+-    var d: Dictionary = card.data
+-    var id: String = str(d.get("id", ""))
+-    if _is_owned(id):
+-        _flash_message("%s · ATTAQUE %d · DÉFENSE %d · MENACE %d · x%d" % [str(d.get("name", "")), int(d.get("attack", 0)), int(d.get("defense", 0)), int(d.get("threat", 0)), int(owned_counts.get(id, 0))])
+-    else:
+-        _flash_message("%s · carte non obtenue" % str(d.get("name", "")))
++    _show_large_card(card.data, "collection")
+     if vibration_enabled:
+         Input.vibrate_handheld(10)
+ 
+@@ -1452,24 +1524,24 @@
+     _base_screen("MON ÉQUIPE", "Uniquement tes cartes obtenues. Glisse horizontalement pour parcourir ta collection.", "team")
+     team_card_views.clear()
+ 
+-    var team_panel: Panel = _panel(Rect2(24, 148, size.x - 48, 184), Color("111019"), Color("3c2d43"), 18)
++    var team_panel: Panel = _panel(Rect2(24, 148, size.x - 48, 200), Color("111019"), Color("3c2d43"), 18)
+     team_slots = HBoxContainer.new()
+     team_slots.position = Vector2(20, 14)
+-    team_slots.size = Vector2(team_panel.size.x - 40, 154)
++    team_slots.size = Vector2(team_panel.size.x - 40, 172)
+     team_slots.alignment = BoxContainer.ALIGNMENT_CENTER
+     team_slots.add_theme_constant_override("separation", 14)
+     team_panel.add_child(team_slots)
+ 
+     team_hint_label = Label.new()
+-    team_hint_label.position = Vector2(28, 340)
++    team_hint_label.position = Vector2(28, 356)
+     team_hint_label.size = Vector2(size.x - 56, 24)
+     team_hint_label.add_theme_font_size_override("font_size", 12)
+     team_hint_label.add_theme_color_override("font_color", Color("c3bac7"))
+     screen_layer.add_child(team_hint_label)
+ 
+     var row: HBoxContainer = HBoxContainer.new()
+-    row.position = Vector2(34, 374)
+-    row.size = Vector2(size.x - 68, 184)
++    row.position = Vector2(34, 386)
++    row.size = Vector2(size.x - 68, 186)
+     row.alignment = BoxContainer.ALIGNMENT_CENTER
+     row.add_theme_constant_override("separation", 14)
+     screen_layer.add_child(row)
+@@ -1479,7 +1551,7 @@
+     for i: int in range(start, finish):
+         var d: Dictionary = owned_cards[i]
+         var c: CardWidget = CardWidgetScript.new()
+-        c.setup(d, Vector2(108, 162), true, true)
++        c.setup(d, Vector2(120, 180), true, false)
+         c.set_motion_enabled(false)
+         c.pressed_card.connect(_on_team_card_pressed)
+         row.add_child(c)
+@@ -1544,17 +1616,9 @@
+     var id: String = str(card.data.get("id", ""))
+     if not _is_owned(id):
+         return
+-    if team_ids.has(id):
+-        team_ids.erase(id)
+-    elif team_ids.size() < TEAM_SIZE:
+-        team_ids.append(id)
+-    else:
+-        _flash_message("Équipe complète : retire une carte avant d'en ajouter une autre.")
+-        return
+-    _save()
++    _show_large_card(card.data, "team")
+     if vibration_enabled:
+         Input.vibrate_handheld(20)
+-    _refresh_team_visuals()
+ 
+ func _refresh_team_visuals() -> void:
+     if team_hint_label != null:
+@@ -1574,13 +1638,13 @@
+         if i < team_ids.size():
+             var d: Dictionary = _get_card(team_ids[i])
+             var c: CardWidget = CardWidgetScript.new()
+-            c.setup(d, Vector2(96, 144), true, true)
++            c.setup(d, Vector2(108, 162), true, false)
+             c.set_motion_enabled(false)
+             c.pressed_card.connect(_on_team_card_pressed)
+             team_slots.add_child(c)
+         else:
+             var empty: Panel = Panel.new()
+-            empty.custom_minimum_size = Vector2(96, 144)
++            empty.custom_minimum_size = Vector2(108, 162)
+             var es: StyleBoxFlat = StyleBoxFlat.new()
+             es.bg_color = Color("0b0b11")
+             es.border_color = Color("44394a")
+@@ -1827,13 +1891,13 @@
+     selected_view = card
+     selected_stat = ""
+     selected_view.set_selected(true)
+-    var p_target: Vector2 = battle_stage.position + Vector2(battle_stage.size.x * 0.18, 62)
++    var p_target: Vector2 = battle_stage.position + Vector2(battle_stage.size.x * 0.16, 14)
+     if animations_enabled:
+-        await selected_view.animate_to(p_target, Vector2(1.38, 1.38), 0.28)
++        await selected_view.animate_to(p_target, Vector2(1.95, 1.95), 0.30)
+     else:
+         selected_view.position = p_target
+         selected_view.rotation = 0.0
+-        selected_view.scale = Vector2(1.38, 1.38)
++        selected_view.scale = Vector2(1.95, 1.95)
+     selected_view.set_stat_choice_enabled(true)
+     battle_locked = false
+     battle_message.text = "%s est joué. TOUCHE ATTAQUE ou DÉFENSE directement en bas de cette carte." % str(card.data.get("name", "Carte"))
+@@ -1883,14 +1947,14 @@
+     var ai_total: int = int(ai_data.get(ai_stat, 0))
+ 
+     battle_message.text = "L'IA choisit sa carte..."
+-    var a_target: Vector2 = battle_stage.position + Vector2(battle_stage.size.x * 0.68, 62)
++    var a_target: Vector2 = battle_stage.position + Vector2(battle_stage.size.x * 0.68, 20)
+ 
+     if animations_enabled:
+-        await ai_view.animate_to(a_target, Vector2(1.38, 1.38), 0.30)
++        await ai_view.animate_to(a_target, Vector2(2.30, 2.30), 0.30)
+         await ai_view.flip_reveal()
+     else:
+         ai_view.position = a_target
+-        ai_view.scale = Vector2(1.38, 1.38)
++        ai_view.scale = Vector2(2.30, 2.30)
+         ai_view.set_face_up(true)
+ 
+     _show_duel_readout(selected_stat, player_total, ai_stat, ai_total)

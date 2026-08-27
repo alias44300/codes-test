@@ -7,9 +7,10 @@ export interface ImportResult {
 }
 
 function normalizeIdFromName(name: string): string | null {
-  const m = name.toUpperCase().match(/(?:HOR|SCI)[-_ ]?0*(\d{1,3})/);
+  const upper = name.toUpperCase();
+  const m = upper.match(/(?:HOR|SCI)[-_ ]?0*(\d{1,3})/);
   if (!m) return null;
-  const prefix = name.toUpperCase().includes('SCI') ? 'SCI' : 'HOR';
+  const prefix = upper.includes('SCI') ? 'SCI' : 'HOR';
   return `${prefix}-${m[1].padStart(3, '0')}`;
 }
 
@@ -32,23 +33,43 @@ export class CardArtStore {
   async importFiles(files: FileList | File[], knownIds: Set<string>): Promise<ImportResult> {
     const imported: string[] = [];
     const rejected: string[] = [];
-    const db = await this.dbPromise;
     for (const file of Array.from(files)) {
       const id = normalizeIdFromName(file.name);
       if (!id || !knownIds.has(id) || !file.type.startsWith('image/')) {
         rejected.push(file.name);
         continue;
       }
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).put(file, id);
-      await new Promise<void>((resolve, reject) => {
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-      this.revoke(id);
+      await this.put(id, file);
       imported.push(id);
     }
     return { imported, rejected };
+  }
+
+  async importForId(cardId: string, file: File, knownIds: Set<string>): Promise<boolean> {
+    if (!knownIds.has(cardId) || !file.type.startsWith('image/')) return false;
+    await this.put(cardId, file);
+    return true;
+  }
+
+  async getStoredIds(): Promise<string[]> {
+    const db = await this.dbPromise;
+    return new Promise<string[]>((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).getAllKeys();
+      req.onsuccess = () => resolve(req.result.map(String));
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async remove(cardId: string): Promise<void> {
+    const db = await this.dbPromise;
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete(cardId);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    this.revoke(cardId);
   }
 
   async getObjectUrl(cardId: string): Promise<string | null> {
@@ -64,6 +85,17 @@ export class CardArtStore {
     const url = URL.createObjectURL(blob);
     this.objectUrls.set(cardId, url);
     return url;
+  }
+
+  private async put(cardId: string, file: File): Promise<void> {
+    const db = await this.dbPromise;
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(file, cardId);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    this.revoke(cardId);
   }
 
   private revoke(id: string): void {

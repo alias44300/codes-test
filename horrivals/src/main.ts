@@ -5,6 +5,7 @@ import { CardArtStore } from './game/storage/CardArtStore';
 import { ArenaScene } from './game/scenes/ArenaScene';
 import { AppShell } from './game/ui/AppShell';
 import './styles.css';
+import './rebuild.css';
 
 async function boot(): Promise<void> {
   const catalog = new CardCatalog();
@@ -12,9 +13,7 @@ async function boot(): Promise<void> {
   const artStore = new CardArtStore();
   const uiRoot = document.getElementById('game-ui')!;
 
-  // IMPORTANT: do not auto-start ArenaScene. It requires roster/team payload.
-  // The old build registered ArenaScene as the first startup scene, so Phaser
-  // tried to initialize it with no payload and the canvas remained black.
+  // ArenaScene requires roster + team data, so it must never auto-start.
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game-canvas',

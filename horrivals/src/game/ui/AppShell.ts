@@ -19,14 +19,14 @@ export class AppShell {
   showMenu(): void {
     this.root.innerHTML = `
       <main class="menu-screen">
-        <div class="brand"><span>HORRIVALS</span><small>RIVALS ARENA</small></div>
+        <div class="brand"><span>HORRIVALS</span><small>MASTER 120 V8</small></div>
         <div class="menu-actions">
           <button data-action="battle">COMBAT RAPIDE</button>
           <button data-action="team">ÉQUIPE</button>
           <button data-action="collection">COLLECTION</button>
           <button data-action="import">IMPORTER MES CARTES</button>
         </div>
-        <div class="menu-note">Cartes verrouillées en <b>2:3 JUMBO XL</b> · zéro crop · zéro étirement</div>
+        <div class="menu-note">120 personnages officiels V8 · cartes <b>2:3 JUMBO XL</b> · ATTAQUE / DÉFENSE uniquement sur les cartes</div>
       </main>`;
     this.root.querySelector('[data-action="battle"]')!.addEventListener('click', () => this.startBattle(this.team));
     this.root.querySelector('[data-action="team"]')!.addEventListener('click', () => this.showTeam());
@@ -52,7 +52,7 @@ export class AppShell {
   }
 
   private showCollection(): void {
-    this.root.innerHTML = `<section class="panel-screen"><header><button data-back>‹</button><h1>COLLECTION</h1><strong>${this.roster.length}</strong></header><div class="card-grid"></div></section>`;
+    this.root.innerHTML = `<section class="panel-screen"><header><button data-back>‹</button><h1>COLLECTION V8</h1><strong>${this.roster.length}/120</strong></header><div class="card-grid"></div></section>`;
     const grid = this.root.querySelector('.card-grid')!;
     for (const card of this.roster) grid.appendChild(this.cardTile(card, false));
     this.root.querySelector('[data-back]')!.addEventListener('click', () => this.showMenu());
@@ -78,7 +78,7 @@ export class AppShell {
       if (!input.files) return;
       const result = await this.artStore.importFiles(input.files, new Set(this.roster.map(c => c.id)));
       const rejected = result.rejected.length ? `\nNon reconnus: ${result.rejected.join(', ')}` : '';
-      alert(`${result.imported.length} carte(s) importée(s).${rejected}\n\nNom conseillé: HOR-001.png, HOR-002.webp, etc.`);
+      alert(`${result.imported.length} carte(s) importée(s).${rejected}\n\nNomme les fichiers avec l’ID exact du V8, par exemple HOR-001.png ou SCI-014.webp.`);
       this.showMenu();
     };
     input.click();

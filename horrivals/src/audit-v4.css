@@ -1,0 +1,39 @@
+/* HORRIVALS V4 audit fixes: keep the cards readable, controls obvious, center clear. */
+.import-art-row{border-color:rgba(255,200,87,.35)!important;background:linear-gradient(100deg,rgba(255,200,87,.09),rgba(255,47,120,.07))!important}
+.import-art-row strong{color:#ffc857!important}
+.panel-import-shortcut{margin-left:10px;padding:9px 12px;border-radius:10px;background:linear-gradient(100deg,#ff2f78,#a91755);border:1px solid rgba(255,255,255,.22);font-size:8px;font-weight:950;letter-spacing:.12em;pointer-events:auto}
+
+/* Combat HUD: edge clusters only. The cards own the center of the screen. */
+.battle-hud{background:transparent!important;overflow:visible!important}
+.battle-hud::before{display:none!important}
+.battle-hud::after{bottom:4px!important;opacity:.55}
+.battle-top{top:calc(8px + var(--safe-top))!important;left:calc(18px + var(--safe-left))!important;right:calc(18px + var(--safe-right))!important;height:50px!important}
+.hud-side{min-width:210px!important;padding:6px 12px!important;background:linear-gradient(90deg,rgba(255,47,120,.16),rgba(4,5,9,.45))!important;backdrop-filter:none!important}
+.hud-side.rival{background:linear-gradient(270deg,rgba(51,214,255,.13),rgba(4,5,9,.45))!important}
+.hud-round{font-size:11px!important;padding:8px 16px!important}
+.hud-role{left:calc(20px + var(--safe-left))!important;top:calc(70px + var(--safe-top))!important;background:rgba(5,6,10,.55)!important;padding:5px 10px!important}
+.hud-fear{left:auto!important;right:calc(20px + var(--safe-right))!important;top:calc(70px + var(--safe-top))!important;bottom:auto!important;background:rgba(5,6,10,.50)!important;padding:5px 9px!important;border:1px solid rgba(255,255,255,.08)!important}
+.hud-fear b{font-size:15px!important}
+.arena-duel-badge{top:calc(92px + var(--safe-top))!important;font-size:7px!important;background:rgba(5,6,10,.34)!important;padding:4px 8px!important}
+.duel-controls{left:50%!important;bottom:calc(14px + var(--safe-bottom))!important;min-height:48px!important;padding:6px 8px!important;gap:6px!important;background:rgba(7,8,13,.82)!important;border:1px solid rgba(255,47,120,.28)!important;box-shadow:0 8px 28px rgba(0,0,0,.34)!important}
+.duel-controls button{width:38px!important;height:38px!important}
+.duel-controls small{max-width:118px!important;font-size:6px!important}
+.battle-message{bottom:calc(68px + var(--safe-bottom))!important;width:auto!important;max-width:470px!important;padding:5px 10px!important;border-radius:9px!important;background:rgba(5,6,10,.62)!important;border:1px solid rgba(255,255,255,.07)!important;font-size:8px!important;line-height:1.25!important;white-space:normal}
+html[data-show-hints="false"] .battle-message{display:none!important}
+.battle-exit{right:calc(14px + var(--safe-right))!important;bottom:calc(14px + var(--safe-bottom))!important;min-width:84px!important;background:rgba(5,6,10,.68)!important}
+
+/* Avoid any accidental giant dark panel over the duel canvas. */
+html.battle-active #game-ui{background:transparent!important}
+html.battle-active #game-ui::before{display:none!important}
+html.battle-active .battle-hud>*{max-width:100vw}
+
+/* Team and collection: controls remain reachable on 1536x709-class Android screens. */
+@media (orientation:landscape) and (max-height:740px){
+  .options-content{padding-top:12px!important}
+  .option-list{gap:10px!important}
+  .option-row{min-height:74px!important}
+  .collection-browser,.team-browser{padding-top:10px!important}
+  .panel-import-shortcut{padding:8px 10px;font-size:7px}
+  .battle-message{bottom:calc(62px + var(--safe-bottom))!important}
+  .duel-controls{bottom:calc(10px + var(--safe-bottom))!important}
+}

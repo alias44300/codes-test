@@ -212,9 +212,11 @@ export class AppShell {
     el.className = `collection-card ${extraClass}${selected ? ' selected' : ''}`.trim();
     el.style.setProperty('--card-index', String(index));
     el.innerHTML = `<div class="card-fallback"><b>${this.escape(card.id)}</b><strong>${this.escape(card.name)}</strong><small>ATQ ${card.attack} · DEF ${card.defense}</small></div>`;
-    void this.artStore.getObjectUrl(card.id).then(url => {
-      if (!url || !el.isConnected) return;
-      el.innerHTML = `<img src="${url}" alt="${this.escape(card.name)}"><span>${this.escape(card.id)}</span>`;
+    void this.artStore.getObjectUrl(card.id).then(importedUrl => {
+      if (!el.isConnected) return;
+      const url = importedUrl || card.art || '';
+      if (!url) return;
+      el.innerHTML = `<img src="${this.escape(url)}" alt="${this.escape(card.name)}"><span>${this.escape(card.id)}</span>`;
     });
     return el;
   }

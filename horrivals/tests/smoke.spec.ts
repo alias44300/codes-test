@@ -17,10 +17,35 @@ test('boots, shows restored menu, opens combat, and returns to menu', async ({ p
   await expect(page.locator('.battle-hud')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('#game-canvas canvas')).toBeVisible();
   await expect(page.locator('.battle-exit')).toBeVisible();
+  await expect(page.locator('.battle-message')).toBeHidden();
 
   await page.locator('.battle-exit').click();
   await expect(page.locator('.premium-home')).toBeVisible();
   expect(errors, `Browser errors: ${errors.join(' | ')}`).toEqual([]);
+});
+
+test('generic Android gallery filename can be assigned to a chosen card', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.game-splash').click();
+  await page.getByRole('button', { name: /ILLUSTRATIONS/i }).click();
+
+  await expect(page.locator('.art-manager-screen')).toBeVisible();
+  await expect(page.getByText(/Le nom du fichier n’a plus aucune importance/i)).toBeVisible();
+
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.locator('[data-card-id="HOR-001"]').click();
+  const chooser = await chooserPromise;
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAQAAABWKLW/AAAADElEQVR42mNk+M8AAAICAQB7CYf7AAAAAElFTkSuQmCC', 'base64');
+  await chooser.setFiles({ name: '1000034293.png', mimeType: 'image/png', buffer: png });
+
+  const notice = page.locator('.art-notice');
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText('ILLUSTRATION AJOUTÉE');
+  await expect(notice).toContainText('1000034293.png');
+  await notice.getByRole('button', { name: 'OK' }).click();
+
+  await expect(page.locator('.art-manager-screen')).toBeVisible();
+  await expect(page.locator('[data-card-id="HOR-001"] .art-choice-preview img')).toBeVisible();
 });
 
 test('packs, collection, team, and options are navigable', async ({ page }) => {
@@ -49,6 +74,7 @@ test('packs, collection, team, and options are navigable', async ({ page }) => {
 
   await page.getByRole('button', { name: /OPTIONS/i }).click();
   await expect(page.locator('.options-screen')).toBeVisible();
+  await expect(page.getByRole('button', { name: /MES ILLUSTRATIONS/i })).toBeVisible();
 });
 
 test('SuperCard-impact home fits a 1536x709 landscape viewport', async ({ page }) => {

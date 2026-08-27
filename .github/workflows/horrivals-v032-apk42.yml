@@ -1,0 +1,196 @@
+name: HORRIVALS V0.3.2 42ART Android APK
+
+on:
+  push:
+    branches: [horrivals-v032-apk44]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GODOT_VERSION: 4.7.2
+      GODOT_STATUS: stable
+      PROJECT_DIR: horrivals/v032_project
+      APK_NAME: HORRIVALS-v0.3.2-42art.apk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reconstruct exact V0.3.2 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            horrivals/apk44_chunks/chunk_00.b64 \
+            horrivals/apk44_chunks/chunk_01.b64 \
+            horrivals/apk44_chunks/group_02_04.b64 \
+            horrivals/apk44_chunks/group_05_07.b64 \
+            horrivals/apk44_chunks/group_08_10.b64 \
+            horrivals/apk44_chunks/group_11_13.b64 \
+            | base64 -d > /tmp/horrivals-v032.zip
+          echo '75c32378c8d7fbda81f802ff13f7aa569eb5969f8f41df97fb8169a9d2b0822c  /tmp/horrivals-v032.zip' | sha256sum -c -
+          rm -rf "$PROJECT_DIR"
+          mkdir -p "$PROJECT_DIR"
+          unzip -q /tmp/horrivals-v032.zip -d "$PROJECT_DIR"
+          test -f "$PROJECT_DIR/project.godot"
+
+      - name: Validate roster, mappings and embedded source art
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('horrivals/v032_project')
+          cards = json.loads((root/'data/cards.json').read_text())
+          assert len(cards) == 120, len(cards)
+          assert len({c['id'] for c in cards}) == 120
+          by = {c['id']: c for c in cards}
+          expected = {
+            'HOR-004': ('Leatherface',58,49,'hor_004_leatherface.webp'),
+            'HOR-005': ('Ghostface',52,38,'hor_005_ghostface.webp'),
+            'HOR-006': ('Pennywise',94,91,'hor_006_pennywise.webp'),
+            'HOR-007': ('Chucky',58,65,'hor_007_chucky.webp'),
+            'HOR-008': ('Pinhead',95,94,'hor_008_pinhead.webp'),
+            'HOR-009': ('Candyman',88,92,'hor_009_candyman.webp'),
+            'HOR-010': ('Jigsaw',64,34,'hor_010_jigsaw.webp'),
+            'HOR-011': ('Art the Clown',72,82,'hor_011_art_the_clown.webp'),
+            'HOR-012': ('Valak / The Nun',94,96,'hor_012_valak_the_nun.webp'),
+            'HOR-013': ('The Creeper',84,89,'hor_013_the_creeper.webp'),
+          }
+          for cid,(name,atk,deff,fn) in expected.items():
+              c=by[cid]
+              assert (c['name'],c['attack'],c['defense']) == (name,atk,deff), (cid,c)
+              assert c.get('full_art') is True, cid
+              assert c.get('art','').endswith(fn), (cid,c.get('art'))
+              f=root/'assets/cards'/fn
+              assert f.is_file() and f.stat().st_size > 5000, (cid,f)
+          art_cards=[c for c in cards if c.get('art')]
+          assert len(art_cards)==42, len(art_cards)
+          for c in art_cards:
+              p=root/c['art'].removeprefix('res://')
+              assert p.is_file() and p.stat().st_size > 5000, (c['id'],p)
+          for pack in ('frisson.webp','cauchemar.webp','maudit.webp'):
+              p=root/'assets/packs'/pack
+              assert p.is_file() and p.stat().st_size > 5000, p
+          print('Validated:',len(cards),'roster cards;',len(art_cards),'real artworks; HOR-004..013 exact.')
+          PY
+          grep -q 'version/name="0.3.2"' "$PROJECT_DIR/export_presets.cfg"
+          grep -q 'version/code=6' "$PROJECT_DIR/export_presets.cfg"
+          grep -q 'full_art' "$PROJECT_DIR/scripts/card_widget.gd"
+          ! grep -q 'ScrollContainer' "$PROJECT_DIR/scripts/main.gd"
+          ! grep -Rni 'effroi' "$PROJECT_DIR/scripts"
+
+      - name: Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v4.0.1
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: 'false'
+
+      - name: Download Godot 4.7.2 and export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-${GODOT_STATUS}"
+          curl -fL --retry 3 "$BASE/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip" -o /tmp/godot.zip
+          curl -fL --retry 3 "$BASE/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz" -o /tmp/templates.tpz
+          mkdir -p "$HOME/godot-bin" "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}"
+          unzip -q /tmp/godot.zip -d "$HOME/godot-bin"
+          GODOT_BIN="$(find "$HOME/godot-bin" -maxdepth 1 -type f -name 'Godot_*linux.x86_64' | head -1)"
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/templates.tpz -d /tmp/godot-templates
+          cp -a /tmp/godot-templates/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}/"
+          "$GODOT_BIN" --version
+
+      - name: Restore HORRIVALS signing cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.horrivals-signing
+          key: horrivals-prototype-signing-v1
+
+      - name: Prepare persistent signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.horrivals-signing"
+          KEYSTORE="$HOME/.horrivals-signing/horrivals-dev.keystore"
+          if [ ! -s "$KEYSTORE" ]; then
+            keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 \
+              -alias horrivalsdev -keyalg RSA -keysize 4096 -validity 10000 \
+              -storepass 'horrivals-dev-2026' -keypass 'horrivals-dev-2026' \
+              -dname 'CN=HORRIVALS Prototype, OU=Game, O=HORRIVALS, C=FR'
+          fi
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=horrivalsdev" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=horrivals-dev-2026" >> "$GITHUB_ENV"
+
+      - name: Import project
+        working-directory: horrivals/v032_project
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --editor --import --quit --path . 2>&1 | tee "$RUNNER_TEMP/godot-import.log"
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script|Error importing' "$RUNNER_TEMP/godot-import.log"; then exit 1; fi
+
+      - name: Runtime smoke test
+        working-directory: horrivals/v032_project
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --path . --quit-after 10 2>&1 | tee "$RUNNER_TEMP/godot-runtime.log"
+          if grep -E 'SCRIPT ERROR|Invalid call|Invalid argument|ERROR: Failed to load' "$RUNNER_TEMP/godot-runtime.log"; then exit 1; fi
+
+      - name: Export Android APK
+        working-directory: horrivals/v032_project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          "$GODOT_BIN" --headless --path . --export-release Android "build/$APK_NAME" 2>&1 | tee "$RUNNER_TEMP/godot-export.log"
+          test -s "build/$APK_NAME"
+
+      - name: Verify APK and art evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$GITHUB_WORKSPACE/$PROJECT_DIR/build/$APK_NAME"
+          OUT="$GITHUB_WORKSPACE/horrivals/package-v032-42art"
+          mkdir -p "$OUT"
+          cp "$APK" "$OUT/$APK_NAME"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT/$APK_NAME" | tee "$OUT/CERTIFICATE_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/$APK_NAME" | tee "$OUT/ZIPALIGN_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$OUT/$APK_NAME" | tee "$OUT/APK_BADGING.txt"
+          grep -q "package: name='com.horrivals.combat'" "$OUT/APK_BADGING.txt"
+          grep -q "versionName='0.3.2'" "$OUT/APK_BADGING.txt"
+          grep -q "versionCode='6'" "$OUT/APK_BADGING.txt"
+          unzip -l "$OUT/$APK_NAME" > "$OUT/APK_CONTENTS.txt"
+          unzip -p "$OUT/$APK_NAME" assets/assets.sparsepck > "$RUNNER_TEMP/assets.sparsepck"
+          test -s "$RUNNER_TEMP/assets.sparsepck"
+          strings "$RUNNER_TEMP/assets.sparsepck" | grep -E 'hor_004_leatherface|hor_005_ghostface|hor_006_pennywise|hor_007_chucky|hor_008_pinhead|hor_009_candyman|hor_010_jigsaw|hor_011_art_the_clown|hor_012_valak_the_nun|hor_013_the_creeper|frisson|cauchemar|maudit' | sort -u | tee "$OUT/EMBEDDED_ASSET_EVIDENCE.txt"
+          for n in hor_004_leatherface hor_005_ghostface hor_006_pennywise hor_007_chucky hor_008_pinhead hor_009_candyman hor_010_jigsaw hor_011_art_the_clown hor_012_valak_the_nun hor_013_the_creeper; do
+            grep -q "$n" "$OUT/EMBEDDED_ASSET_EVIDENCE.txt"
+          done
+          sha256sum "$OUT/$APK_NAME" | tee "$OUT/APK_SHA256.txt"
+          printf '%s\n' 'HORRIVALS V0.3.2' 'Roster: 120' 'Illustrated cards: 42' 'New batch HOR-004..HOR-013 embedded and verified' 'Physical-device test: not performed by CI' > "$OUT/BUILD_REPORT.txt"
+
+      - name: Upload verified APK package
+        uses: actions/upload-artifact@v4
+        with:
+          name: HORRIVALS_V0.3.2_42ART_APK
+          path: horrivals/package-v032-42art/*
+          if-no-files-found: error
+          retention-days: 30

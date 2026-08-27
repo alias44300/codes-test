@@ -9,8 +9,7 @@ export class CardCatalog {
       if (!response.ok) throw new Error(`Unable to load card catalog: ${response.status}`);
     }
     const parts = await Promise.all(responses.map(r => r.json() as Promise<CardData[]>));
-    const data = parts.flat();
-    this.cards = data.map(card => ({ ...card, art: '' }));
+    this.cards = parts.flat().map(card => ({ ...card }));
     return [...this.cards];
   }
 

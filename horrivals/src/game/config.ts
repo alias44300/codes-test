@@ -1,7 +1,9 @@
 import type { BattleRules } from './types';
 
-export const DESIGN_WIDTH = 1280;
-export const DESIGN_HEIGHT = 720;
+// HORRIVALS is designed first for modern Android landscape screens.
+// 1536x709 matches the validated Samsung viewport and the illustrated arena ratio.
+export const DESIGN_WIDTH = 1536;
+export const DESIGN_HEIGHT = 709;
 export const CARD_RATIO = 2 / 3;
 
 export const RULES: BattleRules = {
@@ -14,9 +16,9 @@ export const RULES: BattleRules = {
 };
 
 export const UI = {
-  handCardHeight: 168,
-  aiBackHeight: 128,
-  duelCardHeight: 520,
-  duelCardGap: 76,
-  maxPersistentHudCoverage: 0.14,
+  handCardHeight: 138,
+  aiBackHeight: 108,
+  duelCardHeight: 420,
+  duelCardGap: 64,
+  maxPersistentHudCoverage: 0.11,
 };

@@ -17,6 +17,14 @@ if (fs.existsSync(strings)) {
   fs.writeFileSync(strings, xml);
 }
 
+const gradle = 'android/app/build.gradle';
+if (fs.existsSync(gradle)) {
+  let source = fs.readFileSync(gradle, 'utf8');
+  source = source.replace(/versionCode\s+\d+/, 'versionCode 4');
+  source = source.replace(/versionName\s+"[^"]+"/, 'versionName "4.0-audit"');
+  fs.writeFileSync(gradle, source);
+}
+
 const mainActivity = 'android/app/src/main/java/com/horrivals/game/MainActivity.java';
 if (fs.existsSync(mainActivity)) {
   fs.writeFileSync(mainActivity, `package com.horrivals.game;

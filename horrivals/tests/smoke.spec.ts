@@ -18,12 +18,21 @@ test('boots, shows restored menu, opens combat, and returns to menu', async ({ p
   await expect(page.locator('#game-canvas canvas')).toBeVisible();
   await expect(page.locator('.battle-exit')).toBeVisible();
 
+  const persistentHud = await page.locator('.battle-hud > *').evaluateAll(elements => elements.map(element => {
+    const node = element as HTMLElement;
+    const r = node.getBoundingClientRect();
+    const style = getComputedStyle(node);
+    return { className: node.className, width: r.width, height: r.height, display: style.display, opacity: style.opacity };
+  }));
+  const blockers = persistentHud.filter(item => item.display !== 'none' && Number(item.opacity) > 0.01 && item.width > 900 && item.height > 140);
+  expect(blockers, `Battle HUD blockers: ${JSON.stringify(blockers)}`).toEqual([]);
+
   await page.locator('.battle-exit').click();
   await expect(page.locator('.premium-home')).toBeVisible();
   expect(errors, `Browser errors: ${errors.join(' | ')}`).toEqual([]);
 });
 
-test('packs, collection, team, and options are navigable', async ({ page }) => {
+test('packs, collection, team, illustrations, and options are navigable', async ({ page }) => {
   await page.goto('/');
   await page.locator('.game-splash').click();
 
@@ -40,18 +49,39 @@ test('packs, collection, team, and options are navigable', async ({ page }) => {
   await page.getByRole('button', { name: /ÉQUIPE/i }).click();
   await expect(page.locator('.team-screen')).toBeVisible();
   await expect(page.locator('.team-fan .collection-card')).toHaveCount(5);
+  await expect(page.locator('[data-art-manager]')).toBeVisible();
   await page.locator('[data-back]').click();
 
   await page.getByRole('button', { name: /COLLECTION/i }).click();
   await expect(page.locator('.collection-screen')).toBeVisible();
   await expect(page.locator('.collection-grid .collection-card').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /AJOUTER \/ REMPLACER MA PHOTO/i })).toBeVisible();
+  await page.locator('[data-back]').click();
+
+  await page.getByRole('button', { name: /MES ILLUSTRATIONS/i }).click();
+  await expect(page.locator('.illustrations-screen')).toBeVisible();
+  await expect(page.getByRole('button', { name: /IMPORTER PLUSIEURS PHOTOS/i })).toBeVisible();
+  await expect(page.locator('.art-entry')).toHaveCount(30);
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.locator('.art-entry').first().getByRole('button', { name: /AJOUTER/i }).click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles({
+    name: 'freddy-test.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=', 'base64'),
+  });
+  await expect(page.locator('.game-toast')).toContainText('HOR-001');
+  await expect(page.locator('.art-imported-count')).toHaveText('1');
   await page.locator('[data-back]').click();
 
   await page.getByRole('button', { name: /OPTIONS/i }).click();
   await expect(page.locator('.options-screen')).toBeVisible();
+  await expect(page.getByRole('button', { name: /MES ILLUSTRATIONS/i })).toBeVisible();
+  await page.getByRole('button', { name: /MES ILLUSTRATIONS/i }).click();
+  await expect(page.locator('.illustrations-screen')).toBeVisible();
 });
 
-test('SuperCard-impact home fits a 1536x709 landscape viewport', async ({ page }) => {
+test('audited home and illustration manager fit a 1536x709 landscape viewport', async ({ page }) => {
   await page.setViewportSize({ width: 1536, height: 709 });
   await page.goto('/');
   await page.locator('.game-splash').click();
@@ -66,9 +96,21 @@ test('SuperCard-impact home fits a 1536x709 landscape viewport', async ({ page }
     page.locator('.premium-team'),
     page.getByRole('button', { name: /PACKS/i }),
     page.getByRole('button', { name: /COLLECTION/i }),
+    page.getByRole('button', { name: /MES ILLUSTRATIONS/i }),
   ];
 
   for (const locator of important) {
+    const box = await locator.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(-2);
+    expect(box!.y).toBeGreaterThanOrEqual(-2);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(1538);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(711);
+  }
+
+  await page.getByRole('button', { name: /MES ILLUSTRATIONS/i }).click();
+  await expect(page.locator('.illustrations-screen')).toBeVisible();
+  for (const locator of [page.locator('.art-command'), page.locator('.art-browser'), page.getByRole('button', { name: /IMPORTER PLUSIEURS PHOTOS/i })]) {
     const box = await locator.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(-2);

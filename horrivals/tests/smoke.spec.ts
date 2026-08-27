@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('boots into a card-first home, opens combat, and returns cleanly', async ({ page }) => {
+test('boots into a card-first home, opens V7 arena combat, and returns cleanly', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
@@ -15,6 +15,7 @@ test('boots into a card-first home, opens combat, and returns cleanly', async ({
   await expect(page.locator('.browser-tools')).toHaveCount(0);
 
   await page.getByRole('button', { name: /JOUER/i }).click();
+  await expect(page.locator('html')).toHaveClass(/arena-v7-enabled/);
   await expect(page.locator('.scx-battle-hud')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('#game-canvas canvas')).toBeVisible();
   await expect(page.locator('.battle-exit')).toBeVisible();

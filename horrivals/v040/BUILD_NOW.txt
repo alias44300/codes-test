@@ -1,0 +1,1 @@
+Build must produce APK with in-game image importer.

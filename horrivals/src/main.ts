@@ -6,6 +6,7 @@ import { ArenaScene } from './game/scenes/ArenaScene';
 import { AppShell } from './game/ui/AppShell';
 import { installShowFx } from './showFx';
 import { installAuditV4 } from './audit-v4';
+import { installAuditV5Runtime } from './audit-v5-runtime';
 import './styles.css';
 import './rebuild.css';
 import './supercard.css';
@@ -21,6 +22,7 @@ async function boot(): Promise<void> {
 
   html.classList.remove('battle-active');
   installShowFx();
+  installAuditV5Runtime();
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,

@@ -5,7 +5,8 @@ import { CardArtStore } from './game/storage/CardArtStore';
 import { ArenaScene } from './game/scenes/ArenaScene';
 import { AppShell } from './game/ui/AppShell';
 import { installShowFx } from './showFx';
-import { installAuditV4 } from './audit-v4';
+import { installV5AuditFixes } from './v5AuditFixes';
+import { installV5ShellEnhancements } from './v5ShellEnhancements';
 import './styles.css';
 import './rebuild.css';
 import './supercard.css';
@@ -21,6 +22,7 @@ async function boot(): Promise<void> {
 
   html.classList.remove('battle-active');
   installShowFx();
+  installV5AuditFixes();
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -53,7 +55,7 @@ async function boot(): Promise<void> {
     game.scene.start('arena', { roster, team: [...team], artStore });
   });
 
-  installAuditV4(shell, uiRoot, roster, artStore);
+  installV5ShellEnhancements(shell, uiRoot);
   html.classList.remove('battle-active');
   shell.showSplash();
 

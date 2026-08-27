@@ -77,3 +77,34 @@ test('SuperCard-impact home fits a 1536x709 landscape viewport', async ({ page }
     expect(box!.y + box!.height).toBeLessThanOrEqual(711);
   }
 });
+
+test('card illustration manager is a game-first roster carousel, not an admin form', async ({ page }) => {
+  await page.setViewportSize({ width: 1536, height: 709 });
+  await page.goto('/');
+  await page.locator('.game-splash').click();
+
+  await page.getByRole('button', { name: /ILLUSTRATIONS/i }).click();
+  await expect(page.locator('.sc-card-roster')).toBeVisible();
+  await expect(page.locator('.sc-focus-card')).toBeVisible();
+  await expect(page.locator('.sc-roster-thumb')).toHaveCount(120);
+  await expect(page.getByText('CHOISIS LA CARTE')).toHaveCount(0);
+  await expect(page.locator('.sc-tools-drawer')).not.toHaveClass(/open/);
+
+  const focusBox = await page.locator('.sc-focus-card').boundingBox();
+  const ctaBox = await page.locator('[data-change-art]').boundingBox();
+  for (const box of [focusBox, ctaBox]) {
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(-2);
+    expect(box!.y).toBeGreaterThanOrEqual(-2);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(1538);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(711);
+  }
+
+  const before = await page.locator('[data-focus-id]').textContent();
+  await page.locator('.sc-roster-thumb').nth(1).click();
+  await expect(page.locator('[data-focus-id]')).not.toHaveText(before || '');
+
+  await page.locator('[data-tools-toggle]').click();
+  await expect(page.locator('.sc-tools-drawer')).toHaveClass(/open/);
+  await expect(page.locator('[data-import-filter]')).toHaveCount(3);
+});

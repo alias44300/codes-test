@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
 
-test('boots into a card-first home, opens V7 arena combat, and returns cleanly', async ({ page }) => {
+test('boots into card-first home, opens illustrated V8 combat, and returns cleanly', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
 
+  await page.setViewportSize({ width: 1536, height: 709 });
   await page.goto('/');
   await page.locator('.scx-splash').click();
 
@@ -15,10 +16,23 @@ test('boots into a card-first home, opens V7 arena combat, and returns cleanly',
   await expect(page.locator('.browser-tools')).toHaveCount(0);
 
   await page.getByRole('button', { name: /JOUER/i }).click();
-  await expect(page.locator('html')).toHaveClass(/arena-v7-enabled/);
-  await expect(page.locator('.scx-battle-hud')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('html')).toHaveClass(/arena-image-v8-enabled/);
+  await expect(page.locator('.v8-battle-hud')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('#game-canvas canvas')).toBeVisible();
-  await expect(page.locator('.battle-exit')).toBeVisible();
+  await expect(page.locator('.v8-round')).toContainText('MANCHE');
+  await expect(page.locator('.v8-fear-player')).toBeVisible();
+  await expect(page.locator('.v8-fear-ai')).toBeVisible();
+  await expect(page.locator('.battle-top,.scx-battle-score')).toHaveCount(0);
+
+  const hudParts = [page.locator('.v8-round'), page.locator('.v8-fear-player'), page.locator('.v8-fear-ai'), page.locator('.v8-exit')];
+  for (const locator of hudParts) {
+    const box = await locator.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(-2);
+    expect(box!.y).toBeGreaterThanOrEqual(-2);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(1538);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(711);
+  }
 
   await page.locator('.battle-exit').click();
   await expect(page.locator('.scx-home')).toBeVisible();

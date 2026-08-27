@@ -32,7 +32,7 @@ type Shell = {
   escape: (value: string) => string;
 };
 
-type ArenaAny = ArenaScene & {
+type ArenaAny = {
   hud: HTMLDivElement;
   message: HTMLDivElement;
   round: HTMLDivElement;
@@ -44,6 +44,7 @@ type ArenaAny = ArenaScene & {
   aiPips: HTMLDivElement;
   duelBadge: HTMLDivElement;
   changeFear: (delta: number) => void;
+  scene: Phaser.Scenes.ScenePlugin;
 };
 
 const safe = (value: string): string => value.replace(/[&<>'\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '\"': '&quot;' }[c] || c));
@@ -466,7 +467,7 @@ function installArenaExperience(): void {
   };
 
   proto.createHud = function(): void {
-    const arena = this as ArenaAny;
+    const arena = this as unknown as ArenaAny;
     const root = document.getElementById('game-ui')!;
     root.innerHTML = '';
     arena.hud = document.createElement('div');

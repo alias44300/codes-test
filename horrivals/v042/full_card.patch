@@ -1,0 +1,137 @@
+--- scripts/card_widget.gd
++++ scripts/card_widget.gd
+@@ -107,8 +107,8 @@
+         add_child(art)
+ 
+         stat_panel_y = size.y * float(data.get("stat_hit_y", 0.78))
+-        _build_full_art_stat_glows()
+-        _build_selection_border(5 if not compact else 3)
++        # No software frame, labels, duplicate stats or visible stat overlays on finished card artwork.
++        # stat_panel_y remains only for invisible touch hit-testing in combat.
+         _build_back()
+         return
+ 
+@@ -442,9 +442,9 @@
+     if defense_choice_label != null:
+         defense_choice_label.visible = stat_choice_enabled
+     if attack_choice_glow != null:
+-        attack_choice_glow.visible = stat_choice_enabled
++        attack_choice_glow.visible = stat_choice_enabled and not full_art
+     if defense_choice_glow != null:
+-        defense_choice_glow.visible = stat_choice_enabled
++        defense_choice_glow.visible = stat_choice_enabled and not full_art
+ 
+ func set_home(pos: Vector2, rot: float = 0.0, scl: Vector2 = Vector2.ONE, snap: bool = false) -> void:
+     home_position = pos
+--- scripts/main.gd
++++ scripts/main.gd
+@@ -1387,62 +1387,43 @@
+ func _show_large_card(card_data: Dictionary, context: String) -> void:
+     var overlay: ColorRect = ColorRect.new()
+     overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+-    overlay.color = Color(0.015, 0.012, 0.02, 0.94)
++    overlay.color = Color(0.006, 0.005, 0.009, 0.975)
+     overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+     overlay.z_index = 900
+     screen_layer.add_child(overlay)
+ 
+-    var card_size: Vector2 = Vector2(350, 525)
++    # The user's artwork IS the card. Show the complete original 2:3 object, nothing else.
++    var max_h: float = size.y - 52.0
++    var card_h: float = minf(654.0, max_h)
++    var card_w: float = card_h * (2.0 / 3.0)
++    var card_size: Vector2 = Vector2(card_w, card_h)
+     var large: CardWidget = CardWidgetScript.new()
+     large.setup(card_data, card_size, true, false)
+-    large.position = Vector2(size.x * 0.5 - card_size.x * 0.5, 72)
++    large.position = Vector2(size.x * 0.5 - card_size.x * 0.5, size.y * 0.5 - card_size.y * 0.5)
+     large.set_motion_enabled(false)
+     large.set_selectable(false)
+     large.z_index = 910
+     overlay.add_child(large)
+ 
+     var close: Button = Button.new()
+-    close.position = Vector2(size.x - 92, 28)
+-    close.size = Vector2(58, 58)
++    close.position = Vector2(size.x - 78, 18)
++    close.size = Vector2(52, 52)
+     close.text = "✕"
+-    close.add_theme_font_size_override("font_size", 25)
++    close.add_theme_font_size_override("font_size", 23)
+     close.focus_mode = Control.FOCUS_NONE
++    close.z_index = 930
+     close.pressed.connect(func() -> void: overlay.queue_free())
+     overlay.add_child(close)
+ 
+-    var id: String = str(card_data.get("id", ""))
+-    var title: Label = Label.new()
+-    title.position = Vector2(30, 34)
+-    title.size = Vector2(360, 70)
+-    title.text = "%s\n%s" % [id, str(card_data.get("name", "CARTE")).to_upper()]
+-    title.add_theme_font_size_override("font_size", 18)
+-    title.add_theme_color_override("font_color", Color("f3edf3"))
+-    overlay.add_child(title)
+-
+-    var meta: Label = Label.new()
+-    meta.position = Vector2(32, 122)
+-    meta.size = Vector2(300, 150)
+-    meta.text = "ATTAQUE  %d\nDÉFENSE  %d\nMENACE   %d" % [int(card_data.get("attack", 0)), int(card_data.get("defense", 0)), int(card_data.get("threat", 0))]
+-    meta.add_theme_font_size_override("font_size", 18)
+-    meta.add_theme_color_override("font_color", Color("cfc4d0"))
+-    overlay.add_child(meta)
+-
+-    var hint: Label = Label.new()
+-    hint.position = Vector2(size.x - 330, 122)
+-    hint.size = Vector2(280, 150)
+-    hint.text = "VUE GRAND FORMAT\n2:3\n\nL'illustration reste entière, sans recadrage volontaire."
+-    hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+-    hint.add_theme_font_size_override("font_size", 15)
+-    hint.add_theme_color_override("font_color", Color("cfc4d0"))
+-    overlay.add_child(hint)
+-
+     if context == "team":
++        var id: String = str(card_data.get("id", ""))
+         var action: Button = Button.new()
+-        action.position = Vector2(size.x - 330, 330)
+-        action.size = Vector2(280, 58)
++        action.position = Vector2(size.x - 295, size.y - 78)
++        action.size = Vector2(255, 48)
+         action.text = "RETIRER DE L'ÉQUIPE" if team_ids.has(id) else "AJOUTER À L'ÉQUIPE"
+-        action.add_theme_font_size_override("font_size", 15)
++        action.add_theme_font_size_override("font_size", 14)
+         action.focus_mode = Control.FOCUS_NONE
++        action.z_index = 930
+         action.pressed.connect(_large_card_team_action.bind(id, overlay))
+         overlay.add_child(action)
+ 
+@@ -1900,7 +1881,7 @@
+         selected_view.scale = Vector2(1.95, 1.95)
+     selected_view.set_stat_choice_enabled(true)
+     battle_locked = false
+-    battle_message.text = "%s est joué. TOUCHE ATTAQUE ou DÉFENSE directement en bas de cette carte." % str(card.data.get("name", "Carte"))
++    battle_message.text = "%s est joué. Touche directement la zone ATTAQUE ou DÉFENSE déjà imprimée sur la carte." % str(card.data.get("name", "Carte"))
+     if vibration_enabled:
+         Input.vibrate_handheld(15)
+     _update_battle_ui()
+--- export_presets.cfg
++++ export_presets.cfg
+@@ -9,7 +9,7 @@
+ export_filter="all_resources"
+ include_filter=""
+ exclude_filter=""
+-export_path="build/HORRIVALS-v0.4.1-largecards.apk"
++export_path="build/HORRIVALS-v0.4.2-fullcard.apk"
+ patches=PackedStringArray()
+ encryption_include_filters=""
+ encryption_exclude_filters=""
+@@ -33,8 +33,8 @@
+ architectures/arm64-v8a=true
+ architectures/x86=false
+ architectures/x86_64=false
+-version/code=9
+-version/name="0.4.1"
++version/code=10
++version/name="0.4.2"
+ package/unique_name="com.horrivals.combat"
+ package/name="HORRIVALS"
+ package/signed=true

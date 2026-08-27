@@ -8,6 +8,7 @@ import { installShowFx } from './showFx';
 import './styles.css';
 import './rebuild.css';
 import './supercard.css';
+import './supercard-controls.css';
 
 async function boot(): Promise<void> {
   const catalog = new CardCatalog();

@@ -5,10 +5,12 @@ import { CardArtStore } from './game/storage/CardArtStore';
 import { ArenaScene } from './game/scenes/ArenaScene';
 import { AppShell } from './game/ui/AppShell';
 import { installShowFx } from './showFx';
+import { installAuditV4 } from './audit-v4';
 import './styles.css';
 import './rebuild.css';
 import './supercard.css';
 import './supercard-controls.css';
+import './audit-v4.css';
 
 async function boot(): Promise<void> {
   const catalog = new CardCatalog();
@@ -51,6 +53,7 @@ async function boot(): Promise<void> {
     game.scene.start('arena', { roster, team: [...team], artStore });
   });
 
+  installAuditV4(shell, uiRoot, roster, artStore);
   html.classList.remove('battle-active');
   shell.showSplash();
 

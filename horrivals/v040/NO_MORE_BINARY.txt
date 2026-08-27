@@ -1,0 +1,1 @@
+Use known-good V0.3 CI source + text patch.

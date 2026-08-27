@@ -12,6 +12,7 @@ import './rebuild.css';
 import './supercard.css';
 import './supercard-controls.css';
 import './audit-v4.css';
+import { installSupercardRebuild } from './supercardRebuild';
 
 async function boot(): Promise<void> {
   const catalog = new CardCatalog();
@@ -23,13 +24,14 @@ async function boot(): Promise<void> {
   html.classList.remove('battle-active');
   installShowFx();
   installV5AuditFixes();
+  installSupercardRebuild();
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game-canvas',
     width: DESIGN_WIDTH,
     height: DESIGN_HEIGHT,
-    backgroundColor: '#06070b',
+    backgroundColor: '#05060b',
     render: { antialias: true, pixelArt: false, roundPixels: false },
     fps: { target: 60, min: 30, smoothStep: true },
     scale: {

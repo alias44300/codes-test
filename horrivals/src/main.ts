@@ -4,6 +4,7 @@ import { CardCatalog } from './game/data/CardCatalog';
 import { CardArtStore } from './game/storage/CardArtStore';
 import { ArenaScene } from './game/scenes/ArenaScene';
 import { AppShell } from './game/ui/AppShell';
+import { installShowFx } from './showFx';
 import './styles.css';
 import './rebuild.css';
 import './supercard.css';
@@ -16,6 +17,7 @@ async function boot(): Promise<void> {
   const html = document.documentElement;
 
   html.classList.remove('battle-active');
+  installShowFx();
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,

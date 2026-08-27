@@ -6,6 +6,15 @@
   --rebuild-bg:#06070b;
 }
 
+/* INPUT LAYERING: menus own input, Phaser owns it only inside battle. */
+#game-canvas{z-index:0;pointer-events:none}
+#game-ui{z-index:20}
+html.battle-active #game-canvas{pointer-events:auto}
+html.battle-active #game-ui{pointer-events:none}
+html.battle-active #game-ui .battle-hud,
+html.battle-active #game-ui .match-result,
+html.battle-active #game-ui button{pointer-events:auto}
+
 /* SPLASH */
 .game-splash{
   position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:8px;

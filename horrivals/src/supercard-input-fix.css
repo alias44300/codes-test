@@ -1,0 +1,8 @@
+html.scx-enabled #app{pointer-events:none!important}
+html.scx-enabled #game-ui{position:fixed!important;inset:0!important;z-index:100!important;pointer-events:auto!important}
+html.scx-enabled #game-ui>*{pointer-events:auto!important}
+html.scx-enabled #game-canvas{pointer-events:none!important}
+html.scx-enabled #rotate-warning{pointer-events:none!important}
+html.scx-enabled.battle-active #game-ui{pointer-events:none!important}
+html.scx-enabled.battle-active #game-canvas{pointer-events:auto!important}
+html.scx-enabled.battle-active .scx-battle-hud,html.scx-enabled.battle-active .scx-battle-hud *{pointer-events:auto!important}

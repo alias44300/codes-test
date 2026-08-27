@@ -17,26 +17,26 @@ jobs:
       GODOT_STATUS: stable
       PROJECT_DIR: horrivals/v040_project
       APK_NAME: HORRIVALS-v0.4.0-import.apk
+      SOURCE_SHA256: 376fa023e38e39c6158d94769f0be3ee236837ec6935b2c1a75bdf11074011ca
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Rebuild V0.4.0 source and apply importer
+      - name: Extract healthy V0.4.0 import source
         shell: bash
         run: |
           set -euo pipefail
-          test -s horrivals/v033/source.zip
-          unzip -t horrivals/v033/source.zip >/dev/null
+          test -s horrivals/v040/source.zip
+          echo "$SOURCE_SHA256  horrivals/v040/source.zip" | sha256sum -c -
+          unzip -t horrivals/v040/source.zip >/dev/null
           rm -rf "$PROJECT_DIR"
           mkdir -p "$PROJECT_DIR"
-          unzip -q horrivals/v033/source.zip -d "$PROJECT_DIR"
-          cd "$PROJECT_DIR"
-          patch -p0 < "$GITHUB_WORKSPACE/horrivals/v040/import_mode.patch"
-          test -f project.godot
-          test -f scripts/main.gd
-          test -f scripts/card_widget.gd
-          test -f export_presets.cfg
+          unzip -q horrivals/v040/source.zip -d "$PROJECT_DIR"
+          test -f "$PROJECT_DIR/project.godot"
+          test -f "$PROJECT_DIR/scripts/main.gd"
+          test -f "$PROJECT_DIR/scripts/card_widget.gd"
+          test -f "$PROJECT_DIR/export_presets.cfg"
 
       - name: Validate importer and roster
         shell: bash
@@ -50,14 +50,16 @@ jobs:
           assert len(cards)==120, len(cards)
           assert len({c['id'] for c in cards})==120
           art=[c for c in cards if c.get('art')]
-          assert len(art)==42, len(art)
+          assert len(art)==5, len(art)
+          expected={'HOR-001','HOR-002','HOR-003','HOR-005','HOR-008'}
+          assert {c['id'] for c in art}==expected,{c['id'] for c in art}
           for c in art:
               p=root/c['art'].removeprefix('res://')
               assert p.is_file() and p.stat().st_size>5000,(c['id'],p)
           for pack in ('frisson.webp','cauchemar.webp','maudit.webp'):
               p=root/'assets/packs'/pack
               assert p.is_file() and p.stat().st_size>5000,p
-          print('Roster:',len(cards),'Embedded art:',len(art))
+          print('Roster:',len(cards),'Starter art:',len(art),'Importer ready')
           PY
           grep -q 'version/name="0.4.0"' "$PROJECT_DIR/export_presets.cfg"
           grep -q 'version/code=8' "$PROJECT_DIR/export_presets.cfg"
@@ -167,7 +169,8 @@ jobs:
             'Formats: PNG / JPG / JPEG / WEBP' \
             'Custom images persist in user://custom_cards' \
             'Roster: 120' \
-            'Embedded illustrated cards: 42' \
+            'Embedded starter cards: 5' \
+            'Pack art: Frisson / Cauchemar / Maudit' \
             'Physical Android picker behavior requires phone validation' \
             > "$OUT/BUILD_REPORT.txt"
 

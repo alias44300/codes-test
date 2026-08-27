@@ -12,6 +12,10 @@ async function boot(): Promise<void> {
   const roster = await catalog.load();
   const artStore = new CardArtStore();
   const uiRoot = document.getElementById('game-ui')!;
+  const html = document.documentElement;
+
+  // Menus own pointer input until a battle actually starts.
+  html.classList.remove('battle-active');
 
   // ArenaScene requires roster + team data, so it must never auto-start.
   const game = new Phaser.Game({
@@ -35,17 +39,21 @@ async function boot(): Promise<void> {
 
   const shell = new AppShell(uiRoot, roster, artStore, team => {
     if (team.length !== 5) {
+      html.classList.remove('battle-active');
       shell.showTeam();
       return;
     }
+    html.classList.add('battle-active');
     uiRoot.innerHTML = '';
     if (game.scene.isActive('arena')) game.scene.stop('arena');
     game.scene.start('arena', { roster, team: [...team], artStore });
   });
 
+  html.classList.remove('battle-active');
   shell.showSplash();
 
   window.addEventListener('horrivals:menu', () => {
+    html.classList.remove('battle-active');
     if (game.scene.isActive('arena')) game.scene.stop('arena');
     shell.showMenu();
   });

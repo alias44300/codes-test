@@ -103,7 +103,7 @@ function pickPhoto(shell: ShellAny, cardId: string, returnToManager: boolean): v
       toast('Import impossible');
     } finally {
       cleanup();
-      if (returnToManager) showImportManager(shell);
+      if (returnToManager) showImportManager(shell, cardId);
       else shell.showCollection();
     }
   }, { once: true });
@@ -111,61 +111,142 @@ function pickPhoto(shell: ShellAny, cardId: string, returnToManager: boolean): v
   input.click();
 }
 
-function showImportManager(shell: ShellAny): void {
+function showImportManager(shell: ShellAny, preferredId?: string): void {
   shell.__importManagerActive = true;
   shell.root.innerHTML = `
-    <section class="modern-panel import-manager">
-      <header class="panel-topbar import-topbar">
-        <button class="icon-back" data-import-back aria-label="Retour">‹</button>
-        <div><small>MES ILLUSTRATIONS</small><h1>CHOISIS LA CARTE</h1></div>
-        <div class="panel-trailing"><b>2:3</b><span>JUMBO XL</span></div>
+    <section class="modern-panel import-manager sc-card-roster">
+      <header class="sc-roster-topbar">
+        <button class="sc-square-button" data-import-back aria-label="Retour">‹</button>
+        <div class="sc-roster-brand"><small>HORRIVALS</small><h1>COLLECTION</h1></div>
+        <div class="sc-roster-counter"><strong data-roster-visible>${shell.roster.length}</strong><span>/ ${shell.roster.length}</span></div>
+        <button class="sc-filter-button" data-tools-toggle><span>☷</span> FILTRES</button>
       </header>
-      <main class="import-manager-body">
-        <div class="import-manager-copy">
-          <strong>1. CHOISIS UNE CARTE</strong>
-          <span>2. CHOISIS N’IMPORTE QUELLE PHOTO DE TA GALERIE</span>
-          <small>Le nom du fichier n’a plus aucune importance.</small>
-        </div>
-        <div class="browser-tools import-tools">
-          <label class="search-box"><span>⌕</span><input type="search" placeholder="Freddy, HOR-001, SCI-014…" data-import-search></label>
-          <div class="filter-chips"><button class="active" data-import-filter="all">TOUS</button><button data-import-filter="HOR">HORREUR</button><button data-import-filter="SCI">SCI-FI</button></div>
-        </div>
-        <div class="card-grid import-card-grid"></div>
+
+      <main class="sc-roster-body">
+        <section class="sc-focus-stage">
+          <div class="sc-focus-beams" aria-hidden="true"></div>
+          <div class="sc-focus-card-wrap" data-focus-slot></div>
+          <div class="sc-focus-copy">
+            <span class="sc-focus-series" data-focus-series></span>
+            <h2 data-focus-name></h2>
+            <small data-focus-id></small>
+            <div class="sc-focus-stats">
+              <span><small>ATTAQUE</small><b data-focus-attack></b></span>
+              <i></i>
+              <span><small>DÉFENSE</small><b data-focus-defense></b></span>
+            </div>
+            <button class="sc-change-art" data-change-art><span>✦</span><b>CHANGER L’ILLUSTRATION</b><small>Choisir une photo dans la galerie</small></button>
+          </div>
+        </section>
+
+        <section class="sc-roster-rail-shell">
+          <button class="sc-rail-arrow" data-rail-prev aria-label="Cartes précédentes">‹</button>
+          <div class="sc-roster-rail" data-roster-rail></div>
+          <button class="sc-rail-arrow" data-rail-next aria-label="Cartes suivantes">›</button>
+        </section>
+
+        <aside class="sc-tools-drawer" data-tools-drawer>
+          <div class="sc-tools-head"><span>FILTRER LE ROSTER</span><button data-tools-close>×</button></div>
+          <label class="sc-search"><span>⌕</span><input type="search" placeholder="Nom ou numéro de carte" data-import-search></label>
+          <div class="sc-filter-chips">
+            <button class="active" data-import-filter="all">TOUTES</button>
+            <button data-import-filter="HOR">HORREUR</button>
+            <button data-import-filter="SCI">SCI-FI</button>
+          </div>
+        </aside>
       </main>
     </section>`;
 
-  const grid = shell.root.querySelector('.import-card-grid')!;
+  const rail = shell.root.querySelector('[data-roster-rail]') as HTMLElement;
+  const focusSlot = shell.root.querySelector('[data-focus-slot]') as HTMLElement;
+  const focusName = shell.root.querySelector('[data-focus-name]') as HTMLElement;
+  const focusId = shell.root.querySelector('[data-focus-id]') as HTMLElement;
+  const focusSeries = shell.root.querySelector('[data-focus-series]') as HTMLElement;
+  const focusAttack = shell.root.querySelector('[data-focus-attack]') as HTMLElement;
+  const focusDefense = shell.root.querySelector('[data-focus-defense]') as HTMLElement;
   const search = shell.root.querySelector('[data-import-search]') as HTMLInputElement;
+  const visibleCounter = shell.root.querySelector('[data-roster-visible]') as HTMLElement;
+  const drawer = shell.root.querySelector('[data-tools-drawer]') as HTMLElement;
   let filter = 'all';
+  let filtered = [...shell.roster];
+  let active = filtered.find(card => card.id === preferredId) || filtered[0];
 
-  const render = () => {
-    const q = search.value.trim().toLowerCase();
-    grid.innerHTML = '';
-    const cards = shell.roster.filter((card: CardData) => {
-      const series = card.id.startsWith('SCI-') ? 'SCI' : 'HOR';
-      return (filter === 'all' || filter === series) && (!q || `${card.id} ${card.name} ${card.universe}`.toLowerCase().includes(q));
-    });
-    const frag = document.createDocumentFragment();
-    cards.forEach((card: CardData) => {
-      const tile = shell.cardTile(card, false, 'import-pick-card', 0, false);
-      tile.setAttribute('aria-label', `Ajouter une illustration pour ${card.name}`);
-      tile.addEventListener('click', () => pickPhoto(shell, card.id, true));
-      frag.appendChild(tile);
-    });
-    grid.appendChild(frag);
+  const renderFocus = () => {
+    if (!active) return;
+    focusSlot.innerHTML = '';
+    const tile = shell.cardTile(active, true, 'sc-focus-card', 0, true);
+    tile.setAttribute('aria-label', active.name);
+    focusSlot.appendChild(tile);
+    focusName.textContent = active.name;
+    focusId.textContent = active.id;
+    focusSeries.textContent = active.id.startsWith('SCI-') ? 'SCI-FI' : 'HORREUR';
+    focusAttack.textContent = String(active.attack);
+    focusDefense.textContent = String(active.defense);
   };
 
-  search.addEventListener('input', render);
+  const selectCard = (card: CardData) => {
+    active = card;
+    renderFocus();
+    rail.querySelectorAll<HTMLElement>('[data-card-id]').forEach(el => el.classList.toggle('selected', el.dataset.cardId === active.id));
+    const selected = rail.querySelector<HTMLElement>(`[data-card-id="${active.id}"]`);
+    selected?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  };
+
+  const renderRail = () => {
+    const q = search.value.trim().toLowerCase();
+    filtered = shell.roster.filter((card: CardData) => {
+      const series = card.id.startsWith('SCI-') ? 'SCI' : 'HOR';
+      const matchesFilter = filter === 'all' || filter === series;
+      const matchesSearch = !q || `${card.id} ${card.name} ${card.universe}`.toLowerCase().includes(q);
+      return matchesFilter && matchesSearch;
+    });
+    visibleCounter.textContent = String(filtered.length);
+    rail.innerHTML = '';
+
+    if (!filtered.length) {
+      rail.innerHTML = `<div class="sc-no-cards">AUCUNE CARTE</div>`;
+      focusSlot.innerHTML = '';
+      focusName.textContent = 'AUCUN RÉSULTAT';
+      focusId.textContent = '';
+      focusSeries.textContent = '';
+      focusAttack.textContent = '—';
+      focusDefense.textContent = '—';
+      return;
+    }
+
+    if (!active || !filtered.some(card => card.id === active.id)) active = filtered[0];
+    const frag = document.createDocumentFragment();
+    filtered.forEach((card: CardData, index: number) => {
+      const tile = shell.cardTile(card, card.id === active.id, 'sc-roster-thumb', index, index < 12);
+      tile.dataset.cardId = card.id;
+      tile.setAttribute('aria-label', card.name);
+      tile.addEventListener('click', () => selectCard(card));
+      frag.appendChild(tile);
+    });
+    rail.appendChild(frag);
+    renderFocus();
+    requestAnimationFrame(() => rail.querySelector<HTMLElement>(`[data-card-id="${active.id}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest' }));
+  };
+
+  shell.root.querySelector('[data-change-art]')!.addEventListener('click', () => {
+    if (active) pickPhoto(shell, active.id, true);
+  });
+  shell.root.querySelector('[data-tools-toggle]')!.addEventListener('click', () => drawer.classList.toggle('open'));
+  shell.root.querySelector('[data-tools-close]')!.addEventListener('click', () => drawer.classList.remove('open'));
+  shell.root.querySelector('[data-rail-prev]')!.addEventListener('click', () => rail.scrollBy({ left: -Math.max(320, rail.clientWidth * 0.72), behavior: 'smooth' }));
+  shell.root.querySelector('[data-rail-next]')!.addEventListener('click', () => rail.scrollBy({ left: Math.max(320, rail.clientWidth * 0.72), behavior: 'smooth' }));
+  search.addEventListener('input', renderRail);
   shell.root.querySelectorAll('[data-import-filter]').forEach((button: Element) => button.addEventListener('click', () => {
     filter = (button as HTMLElement).dataset.importFilter || 'all';
     shell.root.querySelectorAll('[data-import-filter]').forEach((b: Element) => b.classList.toggle('active', b === button));
-    render();
+    renderRail();
   }));
   shell.root.querySelector('[data-import-back]')!.addEventListener('click', () => {
     shell.__importManagerActive = false;
     shell.showMenu();
   });
-  render();
+
+  renderRail();
 }
 
 export function installV5AuditFixes(): void {

@@ -39,7 +39,7 @@ jobs:
         working-directory: horrivals
         run: npx playwright install --with-deps chromium
 
-      - name: Playtest menu and combat flow
+      - name: Playtest menu, illustrations and combat flow
         working-directory: horrivals
         run: npm run test:smoke
 
@@ -54,10 +54,37 @@ jobs:
         working-directory: horrivals/android
         run: ./gradlew assembleDebug --stacktrace
 
+      - name: Re-sign with stable HORRIVALS prototype key
+        working-directory: horrivals
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          ZIPALIGN="$BUILD_TOOLS/zipalign"
+          APKSIGNER="$BUILD_TOOLS/apksigner"
+          INPUT="android/app/build/outputs/apk/debug/app-debug.apk"
+          STRIPPED="android/app/build/outputs/apk/debug/app-v4-stripped.apk"
+          ALIGNED="android/app/build/outputs/apk/debug/app-v4-aligned.apk"
+          OUTPUT="android/app/build/outputs/apk/debug/HORRIVALS-V4-AUDIT.apk"
+
+          cp "$INPUT" "$STRIPPED"
+          zip -d "$STRIPPED" 'META-INF/*' >/dev/null 2>&1 || true
+          "$ZIPALIGN" -f -P 16 -v 4 "$STRIPPED" "$ALIGNED" >/dev/null
+
+          # Public AOSP development key: stable for prototype upgrades only, never for a production release.
+          curl -fsSL https://raw.githubusercontent.com/aosp-mirror/platform_build/main/target/product/security/testkey.pk8 -o /tmp/horrivals-testkey.pk8
+          curl -fsSL https://raw.githubusercontent.com/aosp-mirror/platform_build/main/target/product/security/testkey.x509.pem -o /tmp/horrivals-testkey.x509.pem
+          "$APKSIGNER" sign \
+            --key /tmp/horrivals-testkey.pk8 \
+            --cert /tmp/horrivals-testkey.x509.pem \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out "$OUTPUT" "$ALIGNED"
+
       - name: Verify APK package, alignment and signature
         working-directory: horrivals
         run: |
-          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          APK="android/app/build/outputs/apk/debug/HORRIVALS-V4-AUDIT.apk"
           test -f "$APK"
           unzip -t "$APK" >/dev/null
           ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)"
@@ -73,5 +100,5 @@ jobs:
           if-no-files-found: error
           retention-days: 7
           path: |
-            horrivals/android/app/build/outputs/apk/debug/app-debug.apk
+            horrivals/android/app/build/outputs/apk/debug/HORRIVALS-V4-AUDIT.apk
             horrivals/android/app/build/outputs/apk/debug/SHA256SUMS.txt

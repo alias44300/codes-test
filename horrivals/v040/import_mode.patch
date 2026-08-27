@@ -1,0 +1,401 @@
+--- scripts/main.gd
++++ scripts/main.gd
+@@ -6,6 +6,7 @@
+ const STARTING_COINS: int = 250
+ const COLLECTION_PAGE_SIZE: int = 12
+ const TEAM_PAGE_SIZE: int = 8
++const IMPORT_PAGE_SIZE: int = 12
+ 
+ var roster: Array[Dictionary] = []
+ var team_ids: Array[String] = []
+@@ -14,6 +15,8 @@
+ var coins: int = 0
+ var animations_enabled: bool = true
+ var vibration_enabled: bool = true
++var custom_art_paths: Dictionary = {}
++var bundled_art_paths: Dictionary = {}
+ 
+ var screen_layer: Control
+ var info_label: Label
+@@ -25,6 +28,8 @@
+ 
+ var collection_page: int = 0
+ var team_page: int = 0
++var import_page: int = 0
++var import_target_id: String = ""
+ var swipe_start: Vector2 = Vector2.ZERO
+ var swipe_tracking: bool = false
+ var swipe_screen: String = ""
+@@ -107,7 +112,10 @@
+     if parsed is Array:
+         for item: Variant in parsed:
+             if item is Dictionary:
+-                roster.append((item as Dictionary).duplicate(true))
++                var card: Dictionary = (item as Dictionary).duplicate(true)
++                roster.append(card)
++                var cid: String = str(card.get("id", ""))
++                bundled_art_paths[cid] = str(card.get("art", ""))
+     if roster.size() != 120:
+         push_warning("Le roster attendu contient 120 cartes, trouvé: %d" % roster.size())
+ 
+@@ -130,6 +138,11 @@
+         for v: Variant in raw_team:
+             team_ids.append(str(v))
+ 
++    var raw_custom_art: Variant = cfg.get_value("collection", "custom_art_paths", {})
++    if raw_custom_art is Dictionary:
++        custom_art_paths = (raw_custom_art as Dictionary).duplicate(true)
++    _apply_custom_art_overrides()
++
+ func _save() -> void:
+     var cfg: ConfigFile = ConfigFile.new()
+     cfg.set_value("options", "animations", animations_enabled)
+@@ -137,6 +150,7 @@
+     cfg.set_value("economy", "starter_claimed", starter_claimed)
+     cfg.set_value("economy", "coins", coins)
+     cfg.set_value("collection", "owned_counts", owned_counts)
++    cfg.set_value("collection", "custom_art_paths", custom_art_paths)
+     cfg.set_value("team", "ids", team_ids)
+     cfg.save("user://horrivals_save.cfg")
+ 
+@@ -190,6 +204,7 @@
+         "home": _show_home()
+         "packs": _show_packs()
+         "collection": _show_collection()
++        "import": _show_import()
+         "team": _show_team()
+         "battle": _show_battle(true)
+         "options": _show_options()
+@@ -294,6 +309,7 @@
+     _bottom_nav_button(row, "ACCUEIL", "home", active)
+     _bottom_nav_button(row, "PACKS", "packs", active)
+     _bottom_nav_button(row, "COLLECTION", "collection", active)
++    _bottom_nav_button(row, "AJOUTER", "import", active)
+     _bottom_nav_button(row, "ÉQUIPE", "team", active)
+     _bottom_nav_button(row, "COMBAT", "battle", active)
+     _bottom_nav_button(row, "OPTIONS", "options", active)
+@@ -301,7 +317,7 @@
+ func _bottom_nav_button(parent: Control, text: String, target: String, active: String) -> void:
+     var b: Button = Button.new()
+     b.text = text
+-    b.custom_minimum_size = Vector2(142, 46)
++    b.custom_minimum_size = Vector2(124, 46)
+     b.add_theme_font_size_override("font_size", 11)
+     b.focus_mode = Control.FOCUS_NONE
+ 
+@@ -345,6 +361,7 @@
+         "home": _show_home()
+         "packs": _show_packs()
+         "collection": _show_collection()
++        "import": _show_import()
+         "team": _show_team()
+         "battle": _show_battle(false)
+         "options": _show_options()
+@@ -1119,6 +1136,215 @@
+     pack_reveal_locked = false
+     pack_current_view = null
+ 
++func _apply_custom_art_overrides() -> void:
++    var dead_ids: Array[String] = []
++    for key: Variant in custom_art_paths.keys():
++        var cid: String = str(key)
++        var path: String = str(custom_art_paths.get(cid, ""))
++        if path == "" or not FileAccess.file_exists(path):
++            dead_ids.append(cid)
++    for cid: String in dead_ids:
++        custom_art_paths.erase(cid)
++
++    for d: Dictionary in roster:
++        var cid: String = str(d.get("id", ""))
++        if custom_art_paths.has(cid):
++            d["art"] = str(custom_art_paths[cid])
++            d["full_art"] = true
++        else:
++            var bundled: String = str(bundled_art_paths.get(cid, ""))
++            d["art"] = bundled
++            if bundled == "":
++                d["full_art"] = false
++
++func _show_import() -> void:
++    current_screen = "import"
++    var pages: int = maxi(1, int(ceil(float(roster.size()) / float(IMPORT_PAGE_SIZE))))
++    import_page = clampi(import_page, 0, pages - 1)
++    _base_screen("AJOUTER MES CARTES", "1. Choisis une case HOR-XXX   2. Choisir une image   3. Elle est enregistrée dans le jeu.", "import")
++
++    var holder: Control = Control.new()
++    holder.position = Vector2(28, 148)
++    holder.size = Vector2(size.x - 56, size.y - 310)
++    screen_layer.add_child(holder)
++
++    var grid: GridContainer = GridContainer.new()
++    grid.columns = 6
++    grid.position = Vector2(0, 0)
++    grid.size = holder.size
++    grid.add_theme_constant_override("h_separation", 16)
++    grid.add_theme_constant_override("v_separation", 12)
++    holder.add_child(grid)
++
++    var start: int = import_page * IMPORT_PAGE_SIZE
++    var finish: int = mini(start + IMPORT_PAGE_SIZE, roster.size())
++    for i: int in range(start, finish):
++        var d: Dictionary = roster[i]
++        var c: CardWidget = CardWidgetScript.new()
++        c.setup(d, Vector2(112, 168), true, true)
++        c.set_motion_enabled(false)
++        c.pressed_card.connect(_on_import_slot_pressed)
++        c.set_selected(str(d.get("id", "")) == import_target_id)
++        grid.add_child(c)
++
++    var status: Label = Label.new()
++    status.position = Vector2(28, size.y - 220)
++    status.size = Vector2(size.x - 56, 28)
++    status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
++    status.add_theme_font_size_override("font_size", 14)
++    status.add_theme_color_override("font_color", Color("d8ced9"))
++    if import_target_id == "":
++        status.text = "Sélectionne d'abord la carte que tu veux illustrer."
++    else:
++        var dsel: Dictionary = _get_card(import_target_id)
++        var suffix: String = " · IMAGE PERSO ACTIVE" if custom_art_paths.has(import_target_id) else ""
++        status.text = "%s · %s%s" % [import_target_id, str(dsel.get("name", "CARTE")).to_upper(), suffix]
++    screen_layer.add_child(status)
++
++    var choose: Button = Button.new()
++    choose.position = Vector2(size.x * 0.5 - 270, size.y - 184)
++    choose.size = Vector2(350, 50)
++    choose.text = "CHOISIR UNE IMAGE"
++    choose.add_theme_font_size_override("font_size", 15)
++    choose.disabled = import_target_id == ""
++    choose.pressed.connect(_open_import_picker)
++    screen_layer.add_child(choose)
++
++    var remove: Button = Button.new()
++    remove.position = Vector2(size.x * 0.5 + 95, size.y - 184)
++    remove.size = Vector2(230, 50)
++    remove.text = "RETIRER L'IMAGE PERSO"
++    remove.add_theme_font_size_override("font_size", 12)
++    remove.disabled = import_target_id == "" or not custom_art_paths.has(import_target_id)
++    remove.pressed.connect(_remove_custom_art)
++    screen_layer.add_child(remove)
++
++    _build_import_pager(import_page, pages)
++
++func _on_import_slot_pressed(card: CardWidget) -> void:
++    import_target_id = str(card.data.get("id", ""))
++    if vibration_enabled:
++        Input.vibrate_handheld(12)
++    _show_import()
++
++func _build_import_pager(page: int, pages: int) -> void:
++    var y: float = size.y - 126.0
++    var label: Label = Label.new()
++    label.position = Vector2(size.x * 0.5 - 120, y)
++    label.size = Vector2(240, 32)
++    label.text = "‹   %d / %d   ›" % [page + 1, pages]
++    label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
++    label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
++    label.add_theme_font_size_override("font_size", 15)
++    label.add_theme_color_override("font_color", Color("c9bfcd"))
++    screen_layer.add_child(label)
++
++    var prev: Button = Button.new()
++    prev.position = Vector2(size.x * 0.5 - 210, y - 4)
++    prev.size = Vector2(70, 40)
++    prev.text = "‹"
++    prev.add_theme_font_size_override("font_size", 24)
++    prev.disabled = page <= 0
++    prev.pressed.connect(_change_import_page.bind(-1))
++    screen_layer.add_child(prev)
++
++    var next: Button = Button.new()
++    next.position = Vector2(size.x * 0.5 + 140, y - 4)
++    next.size = Vector2(70, 40)
++    next.text = "›"
++    next.add_theme_font_size_override("font_size", 24)
++    next.disabled = page >= pages - 1
++    next.pressed.connect(_change_import_page.bind(1))
++    screen_layer.add_child(next)
++
++func _change_import_page(delta: int) -> void:
++    var pages: int = maxi(1, int(ceil(float(roster.size()) / float(IMPORT_PAGE_SIZE))))
++    import_page = clampi(import_page + delta, 0, pages - 1)
++    _show_import()
++
++func _open_import_picker() -> void:
++    if import_target_id == "":
++        _flash_message("Choisis d'abord une case HOR-XXX.")
++        return
++    var filters: PackedStringArray = PackedStringArray(["*.png,*.jpg,*.jpeg,*.webp;Images;image/png,image/jpeg,image/webp"])
++    var err: Error = DisplayServer.file_dialog_show(
++        "Choisir une image de carte",
++        "",
++        "",
++        false,
++        DisplayServer.FILE_DIALOG_MODE_OPEN_FILE,
++        filters,
++        _on_import_file_selected
++    )
++    if err != OK:
++        _flash_message("Le sélecteur Android n'est pas disponible sur cet appareil.")
++
++func _on_import_file_selected(status: bool, selected_paths: PackedStringArray, _selected_filter_index: int) -> void:
++    if not status or selected_paths.is_empty():
++        return
++    _import_image_for_target(selected_paths[0])
++
++func _decode_image_bytes(bytes: PackedByteArray) -> Image:
++    var img: Image = Image.new()
++    var err: Error = img.load_png_from_buffer(bytes)
++    if err != OK:
++        err = img.load_jpg_from_buffer(bytes)
++    if err != OK:
++        err = img.load_webp_from_buffer(bytes)
++    if err != OK:
++        return null
++    return img
++
++func _import_image_for_target(source_path: String) -> void:
++    if import_target_id == "":
++        return
++    var src: FileAccess = FileAccess.open(source_path, FileAccess.READ)
++    if src == null:
++        _flash_message("Impossible de lire cette image.")
++        return
++    var bytes: PackedByteArray = src.get_buffer(src.get_length())
++    src.close()
++    var img: Image = _decode_image_bytes(bytes)
++    if img == null or img.is_empty():
++        _flash_message("Format non reconnu. Utilise PNG, JPG ou WEBP.")
++        return
++    if img.get_width() < 200 or img.get_height() < 300:
++        _flash_message("Image trop petite. Minimum conseillé : 200 × 300 px.")
++        return
++
++    var dir_path: String = ProjectSettings.globalize_path("user://custom_cards")
++    var mk: Error = DirAccess.make_dir_recursive_absolute(dir_path)
++    if mk != OK and mk != ERR_ALREADY_EXISTS:
++        _flash_message("Impossible de créer le dossier des cartes.")
++        return
++    var safe_id: String = import_target_id.to_lower().replace("-", "_")
++    var dest: String = "user://custom_cards/%s.png" % safe_id
++    var save_err: Error = img.save_png(dest)
++    if save_err != OK:
++        _flash_message("Impossible d'enregistrer l'image dans le jeu.")
++        return
++
++    custom_art_paths[import_target_id] = dest
++    owned_counts[import_target_id] = maxi(1, int(owned_counts.get(import_target_id, 0)))
++    _apply_custom_art_overrides()
++    _save()
++    if vibration_enabled:
++        Input.vibrate_handheld(45)
++    _show_import()
++    _flash_message("%s ajoutée au jeu." % import_target_id)
++
++func _remove_custom_art() -> void:
++    if import_target_id == "" or not custom_art_paths.has(import_target_id):
++        return
++    var path: String = str(custom_art_paths.get(import_target_id, ""))
++    if path != "" and FileAccess.file_exists(path):
++        DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
++    custom_art_paths.erase(import_target_id)
++    _apply_custom_art_overrides()
++    _save()
++    _show_import()
++    _flash_message("Illustration personnelle retirée pour %s." % import_target_id)
++
+ func _show_collection() -> void:
+     current_screen = "collection"
+     var pages: int = maxi(1, int(ceil(float(roster.size()) / float(COLLECTION_PAGE_SIZE))))
+--- scripts/card_widget.gd
++++ scripts/card_widget.gd
+@@ -47,6 +47,40 @@
+     mouse_exited.connect(_mouse_exited)
+     gui_input.connect(_gui_input)
+ 
++func _art_exists(path: String) -> bool:
++    if path == "":
++        return false
++    if path.begins_with("user://"):
++        return FileAccess.file_exists(path)
++    return ResourceLoader.exists(path)
++
++func _decode_art_bytes(bytes: PackedByteArray) -> Image:
++    var img: Image = Image.new()
++    var err: Error = img.load_png_from_buffer(bytes)
++    if err != OK:
++        err = img.load_jpg_from_buffer(bytes)
++    if err != OK:
++        err = img.load_webp_from_buffer(bytes)
++    if err != OK:
++        return null
++    return img
++
++func _load_art_texture(path: String) -> Texture2D:
++    if path.begins_with("user://"):
++        var f: FileAccess = FileAccess.open(path, FileAccess.READ)
++        if f == null:
++            return null
++        var bytes: PackedByteArray = f.get_buffer(f.get_length())
++        f.close()
++        var img: Image = _decode_art_bytes(bytes)
++        if img == null or img.is_empty():
++            return null
++        return ImageTexture.create_from_image(img)
++    var res: Resource = load(path)
++    if res is Texture2D:
++        return res as Texture2D
++    return null
++
+ func _build() -> void:
+     for child: Node in get_children():
+         child.queue_free()
+@@ -59,7 +93,7 @@
+     defense_choice_glow = null
+ 
+     var art_path: String = str(data.get("art", ""))
+-    var has_art: bool = art_path != "" and ResourceLoader.exists(art_path)
++    var has_art: bool = _art_exists(art_path)
+ 
+     # Fully composed card artworks already contain their own frame, title and stats.
+     # Render them untouched and only add invisible/direct stat hit zones for battle.
+@@ -68,7 +102,7 @@
+         art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+         art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+         art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+-        art.texture = load(art_path)
++        art.texture = _load_art_texture(art_path)
+         art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+         add_child(art)
+ 
+@@ -103,7 +137,7 @@
+         art.offset_bottom = -4
+         art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+         art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+-        art.texture = load(art_path)
++        art.texture = _load_art_texture(art_path)
+         art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+         add_child(art)
+     else:
+--- export_presets.cfg
++++ export_presets.cfg
+@@ -9,7 +9,7 @@
+ export_filter="all_resources"
+ include_filter=""
+ exclude_filter=""
+-export_path="build/HORRIVALS-v0.3.3.apk"
++export_path="build/HORRIVALS-v0.4.0-import.apk"
+ patches=PackedStringArray()
+ encryption_include_filters=""
+ encryption_exclude_filters=""
+@@ -33,8 +33,8 @@
+ architectures/arm64-v8a=true
+ architectures/x86=false
+ architectures/x86_64=false
+-version/code=7
+-version/name="0.3.3"
++version/code=8
++version/name="0.4.0"
+ package/unique_name="com.horrivals.combat"
+ package/name="HORRIVALS"
+ package/signed=true

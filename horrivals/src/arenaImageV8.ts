@@ -2,23 +2,9 @@ import Phaser from 'phaser';
 import { DESIGN_HEIGHT, DESIGN_WIDTH, RULES } from './game/config';
 import { ArenaScene } from './game/scenes/ArenaScene';
 
-type ArenaAny = ArenaScene & {
-  engine: any;
-  fearSpend: number;
-  locked: boolean;
-  hud: HTMLDivElement;
-  message: HTMLDivElement;
-  round: HTMLDivElement;
-  role: HTMLDivElement;
-  fear: HTMLDivElement;
-  fearValue: HTMLSpanElement;
-  controls: HTMLDivElement;
-  playerPips: HTMLDivElement;
-  aiPips: HTMLDivElement;
-  duelBadge: HTMLDivElement;
-  changeFear(delta: number): void;
-  renderPips(root: HTMLDivElement, score: number, owner: 'player' | 'ai'): void;
-};
+// Presentation patch intentionally talks to ArenaScene's runtime fields through
+// one isolated bridge. Gameplay state remains owned by BattleEngine.
+type ArenaAny = any;
 
 const ARENA_KEY = '__horrivals_arena_v8';
 const ARENA_URL = '/assets/arena/horrivals-arena-v8.webp';

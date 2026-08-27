@@ -5,6 +5,8 @@ const PAGE_SIZE = 30;
 const TEAM_KEY = 'horrivals-team-v2';
 const SETTINGS_KEY = 'horrivals-settings-v2';
 
+type ReturnScreen = 'illustrations' | 'collection';
+
 interface UiSettings {
   reducedMotion: boolean;
   showHints: boolean;
@@ -65,7 +67,7 @@ export class AppShell {
           <div class="premium-copy">
             <span class="eyebrow">ARÈNE JUMBO XL · 2:3</span>
             <h1>CHOISIS 5.<br>FAIS TOMBER 3.</h1>
-            <p>Compose ton équipe, lance le duel et joue tes cartes en grand. Les illustrations restent entièrement visibles, sans recadrage.</p>
+            <p>Compose ton équipe, lance le duel et joue tes cartes en grand. Tes illustrations restent entièrement visibles, sans recadrage.</p>
             <button class="premium-battle" data-action="battle"><span>COMBATTRE</span><b>›</b></button>
           </div>
           <div class="premium-team" aria-label="Ton équipe actuelle"></div>
@@ -75,7 +77,7 @@ export class AppShell {
           <button data-action="packs"><span>01</span><b>PACKS</b><small>Frisson · Cauchemar · Maudit</small></button>
           <button data-action="team"><span>02</span><b>ÉQUIPE</b><small>Composer mes 5 cartes</small></button>
           <button data-action="collection"><span>03</span><b>COLLECTION</b><small>Explorer les 120 cartes</small></button>
-          <button data-action="import"><span>04</span><b>ILLUSTRATIONS</b><small>Importer HOR / SCI</small></button>
+          <button data-action="import"><span>04</span><b>MES ILLUSTRATIONS</b><small>Ajouter mes photos 2:3</small></button>
           <button data-action="options"><span>05</span><b>OPTIONS</b><small>Affichage et confort</small></button>
         </nav>
 
@@ -89,7 +91,7 @@ export class AppShell {
     this.root.querySelector('[data-action="packs"]')!.addEventListener('click', () => this.showPacks());
     this.root.querySelector('[data-action="team"]')!.addEventListener('click', () => this.showTeam());
     this.root.querySelector('[data-action="collection"]')!.addEventListener('click', () => this.showCollection());
-    this.root.querySelector('[data-action="import"]')!.addEventListener('click', () => this.openImport());
+    this.root.querySelector('[data-action="import"]')!.addEventListener('click', () => void this.showIllustrations());
     this.root.querySelector('[data-action="options"]')!.addEventListener('click', () => this.showOptions());
   }
 
@@ -108,7 +110,7 @@ export class AppShell {
         <main class="packs-content packs-content-v2">
           <div class="packs-intro">
             <div><small>OUVERTURE</small><span>CHOISIS TON PACK</span></div>
-            <p>Chaque pack révèle une carte. Aucun niveau de rareté n’est affiché sur les cartes.</p>
+            <p>Une carte révélée à la fois. Aucun niveau de rareté n’est imprimé sur les cartes.</p>
           </div>
           <div class="packs-grid packs-grid-v2">
             <button class="pack-card pack-frisson" data-pack="frisson"><i>01</i><strong>FRISSON</strong><small>1 CARTE</small><b>OUVRIR ›</b></button>
@@ -163,6 +165,7 @@ export class AppShell {
             <div class="browser-tools">
               <label class="search-box"><span>⌕</span><input type="search" placeholder="Nom, univers ou ID…" data-search></label>
               <div class="filter-chips"><button class="active" data-filter="all">TOUS</button><button data-filter="HOR">HORREUR</button><button data-filter="SCI">SCI-FI</button></div>
+              <button class="art-shortcut" data-art-manager>+ PHOTOS</button>
             </div>
             <div class="card-grid roster-grid"></div>
           </main>
@@ -218,6 +221,7 @@ export class AppShell {
     search.addEventListener('input', () => { visibleCount = PAGE_SIZE; renderGrid(); });
     this.root.querySelector('[data-back]')!.addEventListener('click', () => this.showMenu());
     this.root.querySelector('[data-battle]')!.addEventListener('click', () => this.launchBattle());
+    this.root.querySelector('[data-art-manager]')!.addEventListener('click', () => void this.showIllustrations());
     refreshFan();
     renderGrid();
   }
@@ -233,6 +237,7 @@ export class AppShell {
             <div class="browser-tools">
               <label class="search-box"><span>⌕</span><input type="search" placeholder="Rechercher une carte…" data-search></label>
               <div class="filter-chips"><button class="active" data-filter="all">TOUS</button><button data-filter="HOR">HORREUR</button><button data-filter="SCI">SCI-FI</button></div>
+              <button class="art-shortcut" data-art-manager>+ PHOTOS</button>
             </div>
             <div class="card-grid collection-grid"></div>
           </main>
@@ -254,10 +259,10 @@ export class AppShell {
           <h2>${this.escape(card.name)}</h2>
           <p>${this.escape(card.universe)}</p>
           <div class="spotlight-stats"><span><small>ATTAQUE</small><b>${card.attack}</b></span><span><small>DÉFENSE</small><b>${card.defense}</b></span></div>
-          <button data-import-one>REMPLACER L’ILLUSTRATION</button>
+          <button data-import-one>AJOUTER / REMPLACER MA PHOTO</button>
         </div>`;
       spotlight.querySelector('.spotlight-card')!.appendChild(this.cardTile(card, false, 'preview-card', 0, true));
-      spotlight.querySelector('[data-import-one]')!.addEventListener('click', () => this.openImport(card.id));
+      spotlight.querySelector('[data-import-one]')!.addEventListener('click', () => this.openImport(card.id, 'collection'));
     };
 
     const renderGrid = () => {
@@ -277,17 +282,80 @@ export class AppShell {
     this.bindFilters(value => { filter = value; visibleCount = PAGE_SIZE; renderGrid(); });
     search.addEventListener('input', () => { visibleCount = PAGE_SIZE; renderGrid(); });
     this.root.querySelector('[data-back]')!.addEventListener('click', () => this.showMenu());
+    this.root.querySelector('[data-art-manager]')!.addEventListener('click', () => void this.showIllustrations());
     renderSpotlight(active);
     renderGrid();
+  }
+
+  private async showIllustrations(): Promise<void> {
+    const importedIds = new Set(await this.artStore.getStoredIds().catch(() => []));
+    this.root.innerHTML = `
+      <section class="modern-panel illustrations-screen">
+        ${this.panelHeader('MES ILLUSTRATIONS', 'JUMBO XL · 2:3', `<b class="art-imported-count">${importedIds.size}</b><span>/ 120</span>`)}
+        <main class="illustrations-layout">
+          <aside class="art-command">
+            <span class="art-kicker">TES CARTES. TES IMAGES.</span>
+            <h2>AJOUTE TES PHOTOS<br>SANS CHERCHER<br>UN MENU CACHÉ.</h2>
+            <p>Pour une carte précise, touche <b>AJOUTER</b>. Pour plusieurs images d’un coup, leurs noms doivent contenir l’ID de la carte, par exemple <b>HOR-001.png</b> ou <b>SCI-014.jpg</b>.</p>
+            <button class="art-batch" data-import-batch><strong>IMPORTER PLUSIEURS PHOTOS</strong><small>PNG · JPG · WEBP · vertical 2:3 recommandé</small></button>
+            <div class="art-note">Les images sont enregistrées sur ton téléphone et remplacent immédiatement les visuels du menu, de la collection, de l’équipe et du combat.</div>
+          </aside>
+          <section class="art-browser">
+            <div class="browser-tools">
+              <label class="search-box"><span>⌕</span><input type="search" placeholder="Trouver une carte…" data-search></label>
+              <div class="filter-chips"><button class="active" data-filter="all">TOUS</button><button data-filter="HOR">HORREUR</button><button data-filter="SCI">SCI-FI</button></div>
+            </div>
+            <div class="art-grid"></div>
+          </section>
+        </main>
+      </section>`;
+
+    const grid = this.root.querySelector('.art-grid')!;
+    const search = this.root.querySelector('[data-search]') as HTMLInputElement;
+    let filter = 'all';
+    let visibleCount = PAGE_SIZE;
+
+    const render = () => {
+      const cards = this.filteredRoster(filter, search.value.trim().toLowerCase());
+      grid.innerHTML = '';
+      const fragment = document.createDocumentFragment();
+      cards.slice(0, visibleCount).forEach(card => {
+        const entry = document.createElement('article');
+        entry.className = `art-entry${importedIds.has(card.id) ? ' has-art' : ''}`;
+        const preview = document.createElement('div');
+        preview.className = 'art-entry-preview';
+        preview.appendChild(this.cardTile(card, false));
+        const actions = document.createElement('div');
+        actions.className = 'art-entry-actions';
+        actions.innerHTML = `<span><b>${this.escape(card.id)}</b><small>${this.escape(card.name)}</small></span><button data-add>${importedIds.has(card.id) ? 'REMPLACER' : 'AJOUTER'}</button>${importedIds.has(card.id) ? '<button class="art-remove" data-remove aria-label="Supprimer l’illustration importée">×</button>' : ''}`;
+        actions.querySelector('[data-add]')!.addEventListener('click', () => this.openImport(card.id, 'illustrations'));
+        actions.querySelector('[data-remove]')?.addEventListener('click', async () => {
+          await this.artStore.remove(card.id);
+          await this.showIllustrations();
+          this.showToast(`${card.id} : illustration importée supprimée.`);
+        });
+        entry.append(preview, actions);
+        fragment.appendChild(entry);
+      });
+      grid.appendChild(fragment);
+      this.appendLoadMore(grid, cards.length, visibleCount, () => { visibleCount += PAGE_SIZE; render(); });
+    };
+
+    this.bindFilters(value => { filter = value; visibleCount = PAGE_SIZE; render(); });
+    search.addEventListener('input', () => { visibleCount = PAGE_SIZE; render(); });
+    this.root.querySelector('[data-back]')!.addEventListener('click', () => this.showMenu());
+    this.root.querySelector('[data-import-batch]')!.addEventListener('click', () => this.openImport(undefined, 'illustrations'));
+    render();
   }
 
   private showOptions(): void {
     this.root.innerHTML = `
       <section class="modern-panel options-screen">
-        ${this.panelHeader('OPTIONS', 'HORRIVALS', '<b>V2</b><span>MOBILE</span>')}
+        ${this.panelHeader('OPTIONS', 'HORRIVALS', '<b>V4</b><span>MOBILE</span>')}
         <main class="options-content">
-          <div class="options-copy"><span>CONFORT DE JEU</span><h2>À TOI DE RÉGLER L’ARÈNE.</h2><p>Ces réglages sont sauvegardés sur ton téléphone.</p></div>
+          <div class="options-copy"><span>CONFORT DE JEU</span><h2>À TOI DE RÉGLER L’ARÈNE.</h2><p>Réglages et illustrations sont sauvegardés sur ton téléphone.</p></div>
           <div class="option-list">
+            <button class="option-row option-art" data-open-art><span><b>MES ILLUSTRATIONS</b><small>Ajouter ou remplacer les photos de tes 120 cartes Jumbo XL</small></span><strong>OUVRIR ›</strong></button>
             <button class="option-row" data-setting="motion"><span><b>ANIMATIONS RÉDUITES</b><small>Réduit les transitions et mouvements non essentiels</small></span><i class="toggle ${this.settings.reducedMotion ? 'on' : ''}"></i></button>
             <button class="option-row" data-setting="hints"><span><b>INDICATIONS DE COMBAT</b><small>Affiche les messages contextuels dans l’arène</small></span><i class="toggle ${this.settings.showHints ? 'on' : ''}"></i></button>
             <button class="option-row danger" data-reset-team><span><b>RÉINITIALISER L’ÉQUIPE</b><small>Remet les cinq premières cartes du roster</small></span><strong>RÉINITIALISER</strong></button>
@@ -296,6 +364,7 @@ export class AppShell {
       </section>`;
 
     this.root.querySelector('[data-back]')!.addEventListener('click', () => this.showMenu());
+    this.root.querySelector('[data-open-art]')!.addEventListener('click', () => void this.showIllustrations());
     this.root.querySelector('[data-setting="motion"]')!.addEventListener('click', () => {
       this.settings.reducedMotion = !this.settings.reducedMotion;
       this.saveSettings();
@@ -305,12 +374,14 @@ export class AppShell {
     this.root.querySelector('[data-setting="hints"]')!.addEventListener('click', () => {
       this.settings.showHints = !this.settings.showHints;
       this.saveSettings();
+      this.applySettings();
       this.showOptions();
     });
     this.root.querySelector('[data-reset-team]')!.addEventListener('click', () => {
       this.team = this.roster.slice(0, 5);
       this.saveTeam();
       this.showOptions();
+      this.showToast('Équipe réinitialisée.');
     });
   }
 
@@ -362,31 +433,51 @@ export class AppShell {
     el.innerHTML = `<img src="${this.escape(url)}" alt="${this.escape(card.name)}" loading="${eager ? 'eager' : 'lazy'}" decoding="async"><span>${this.escape(card.id)}</span>`;
   }
 
-  private openImport(onlyId?: string): void {
+  private openImport(onlyId?: string, returnTo: ReturnScreen = 'illustrations'): void {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/png,image/jpeg,image/webp';
+    input.accept = 'image/*';
     input.multiple = !onlyId;
+    input.hidden = true;
+    document.body.appendChild(input);
+
+    const cleanup = () => input.remove();
+    input.addEventListener('cancel', cleanup, { once: true });
     input.onchange = async () => {
-      if (!input.files?.length) return;
-      let files: FileList | File[] = input.files;
-      if (onlyId && input.files.length === 1) {
-        const original = input.files[0];
-        const extension = original.name.split('.').pop() || 'png';
-        files = this.fileListFrom([new File([original], `${onlyId}.${extension}`, { type: original.type })]);
+      if (!input.files?.length) { cleanup(); return; }
+      const knownIds = new Set(this.roster.map(c => c.id));
+      try {
+        if (onlyId) {
+          const ok = await this.artStore.importForId(onlyId, input.files[0], knownIds);
+          if (returnTo === 'collection') this.showCollection(); else await this.showIllustrations();
+          this.showToast(ok ? `${onlyId} : photo ajoutée.` : 'Fichier image non reconnu.');
+        } else {
+          const result = await this.artStore.importFiles(input.files, knownIds);
+          await this.showIllustrations();
+          const rejected = result.rejected.length ? ` · ${result.rejected.length} fichier(s) ignoré(s)` : '';
+          this.showToast(`${result.imported.length} illustration(s) importée(s)${rejected}.`);
+        }
+      } catch (error) {
+        if (returnTo === 'collection') this.showCollection(); else await this.showIllustrations();
+        this.showToast(`Import impossible : ${String(error)}`);
+      } finally {
+        cleanup();
       }
-      const result = await this.artStore.importFiles(files, new Set(this.roster.map(c => c.id)));
-      const rejected = result.rejected.length ? `\nNon reconnus : ${result.rejected.join(', ')}` : '';
-      alert(`${result.imported.length} illustration(s) importée(s).${rejected}\n\nFormat recommandé : vertical 2:3 Jumbo XL.`);
-      if (onlyId) this.showCollection(); else this.showMenu();
     };
     input.click();
   }
 
-  private fileListFrom(files: File[]): FileList {
-    const transfer = new DataTransfer();
-    files.forEach(file => transfer.items.add(file));
-    return transfer.files;
+  private showToast(message: string): void {
+    this.root.querySelector('.game-toast')?.remove();
+    const toast = document.createElement('div');
+    toast.className = 'game-toast';
+    toast.textContent = message;
+    this.root.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('visible'));
+    window.setTimeout(() => {
+      toast.classList.remove('visible');
+      window.setTimeout(() => toast.remove(), 180);
+    }, 2400);
   }
 
   private loadTeam(): CardData[] {

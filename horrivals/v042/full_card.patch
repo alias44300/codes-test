@@ -16,7 +16,7 @@
      face_up = is_face_up
      custom_minimum_size = card_size
      size = card_size
-@@ -81,6 +83,31 @@
+@@ -81,6 +83,32 @@
      for child: Node in get_children():
          child.queue_free()
  
@@ -32,7 +32,8 @@
 +    var has_art: bool = _art_exists(art_path)
 +
 +    # A full_art image is already the finished card, including ID, name and ATT/DEF.
-+    # Show the whole 2:3 image untouched. No software frame, duplicate labels or stats.
++    # No software frame, labels, duplicate stats or visible overlays on finished card artwork.
++    # Show the whole 2:3 image untouched.
 +    if full_art and has_art:
 +        var finished_art: TextureRect = TextureRect.new()
 +        finished_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -48,7 +49,7 @@
      var frame: Panel = Panel.new()
      frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
      frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-@@ -97,8 +124,7 @@
+@@ -97,8 +125,7 @@
      frame.add_theme_stylebox_override("panel", fs)
      add_child(frame)
  

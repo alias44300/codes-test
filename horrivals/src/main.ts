@@ -9,6 +9,7 @@ import './styles.css';
 import './rebuild.css';
 import './supercard.css';
 import './supercard-controls.css';
+import './audit-v4.css';
 
 async function boot(): Promise<void> {
   const catalog = new CardCatalog();

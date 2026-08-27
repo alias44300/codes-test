@@ -5,6 +5,7 @@ test('boots, shows restored menu, opens combat, and returns to menu', async ({ p
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
 
+  await page.setViewportSize({ width: 1536, height: 709 });
   await page.goto('/');
   await page.locator('.game-splash').click();
 
@@ -12,6 +13,7 @@ test('boots, shows restored menu, opens combat, and returns to menu', async ({ p
   await expect(page.getByRole('button', { name: /COMBATTRE/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /PACKS/i })).toBeVisible();
   await expect(page.locator('.premium-team .collection-card')).toHaveCount(5);
+  await page.screenshot({ path: 'audit-home.png' });
 
   await page.getByRole('button', { name: /COMBATTRE/i }).click();
   await expect(page.locator('.battle-hud')).toBeVisible({ timeout: 10_000 });
@@ -26,6 +28,7 @@ test('boots, shows restored menu, opens combat, and returns to menu', async ({ p
   }));
   const blockers = persistentHud.filter(item => item.display !== 'none' && Number(item.opacity) > 0.01 && item.width > 900 && item.height > 140);
   expect(blockers, `Battle HUD blockers: ${JSON.stringify(blockers)}`).toEqual([]);
+  await page.screenshot({ path: 'audit-combat.png' });
 
   await page.locator('.battle-exit').click();
   await expect(page.locator('.premium-home')).toBeVisible();
@@ -33,6 +36,7 @@ test('boots, shows restored menu, opens combat, and returns to menu', async ({ p
 });
 
 test('packs, collection, team, illustrations, and options are navigable', async ({ page }) => {
+  await page.setViewportSize({ width: 1536, height: 709 });
   await page.goto('/');
   await page.locator('.game-splash').click();
 
@@ -62,6 +66,8 @@ test('packs, collection, team, illustrations, and options are navigable', async 
   await expect(page.locator('.illustrations-screen')).toBeVisible();
   await expect(page.getByRole('button', { name: /IMPORTER PLUSIEURS PHOTOS/i })).toBeVisible();
   await expect(page.locator('.art-entry')).toHaveCount(30);
+  await page.screenshot({ path: 'audit-illustrations.png' });
+
   const chooserPromise = page.waitForEvent('filechooser');
   await page.locator('.art-entry').first().getByRole('button', { name: /AJOUTER/i }).click();
   const chooser = await chooserPromise;

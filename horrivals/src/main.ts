@@ -6,6 +6,7 @@ import { ArenaScene } from './game/scenes/ArenaScene';
 import { AppShell } from './game/ui/AppShell';
 import './styles.css';
 import './rebuild.css';
+import './supercard.css';
 
 async function boot(): Promise<void> {
   const catalog = new CardCatalog();
@@ -14,10 +15,8 @@ async function boot(): Promise<void> {
   const uiRoot = document.getElementById('game-ui')!;
   const html = document.documentElement;
 
-  // Menus own pointer input until a battle actually starts.
   html.classList.remove('battle-active');
 
-  // ArenaScene requires roster + team data, so it must never auto-start.
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game-canvas',

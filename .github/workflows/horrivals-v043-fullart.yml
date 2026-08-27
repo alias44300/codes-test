@@ -1,0 +1,225 @@
+name: HORRIVALS V0.4.3 Automatic Full-Art Android APK
+
+on:
+  push:
+    branches: [horrivals-v043-fullart42]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GODOT_VERSION: 4.7.2
+      GODOT_STATUS: stable
+      PROJECT_DIR: horrivals/v043_project
+      APK_NAME: HORRIVALS-v0.4.3-fullart.apk
+      SOURCE_SHA256: 296b26ca18302fb4deb90441add10fe3d733e2d38a8e075c990d78398bc40e5c
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild base project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$PROJECT_DIR"
+          mkdir -p "$PROJECT_DIR"
+          cat \
+            horrivals/v03/chunk_00.b64 \
+            horrivals/v03/chunk_01.b64 \
+            horrivals/v03/chunk_02.b64 \
+            horrivals/v03/chunk_03.b64 \
+            horrivals/v03/chunk_04.b64 \
+            horrivals/v03/chunk_05.b64 \
+            horrivals/v03/chunk_06_07.b64 \
+            horrivals/v03/chunk_08_09.b64 \
+            | tr -d '\n\r\t ' | base64 -d > "$RUNNER_TEMP/horrivals-source.zip"
+          echo "$SOURCE_SHA256  $RUNNER_TEMP/horrivals-source.zip" | sha256sum -c -
+          unzip -t "$RUNNER_TEMP/horrivals-source.zip" >/dev/null
+          unzip -q "$RUNNER_TEMP/horrivals-source.zip" -d "$PROJECT_DIR"
+
+      - name: Apply image importer
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          patch -p0 --batch < "$GITHUB_WORKSPACE/horrivals/v040/import_mode.patch" || true
+          python3 - <<'PY'
+          from pathlib import Path
+          card=Path('scripts/card_widget.gd')
+          c=card.read_text()
+          assert 'func _art_exists(path: String)' in c
+          assert 'func _load_art_texture(path: String)' in c
+          c=c.replace('if art_path != "" and ResourceLoader.exists(art_path):','if _art_exists(art_path):')
+          c=c.replace('art.texture = load(art_path)','art.texture = _load_art_texture(art_path)')
+          card.write_text(c)
+          PY
+          rm -f scripts/*.rej export_presets.cfg.rej
+
+      - name: Apply large-card and untouched-card presentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          patch -p1 --batch < "$GITHUB_WORKSPACE/horrivals/v041/large_cards.patch"
+          rm -f scripts/*.rej export_presets.cfg.rej
+          patch -p0 --batch < "$GITHUB_WORKSPACE/horrivals/v042/full_card.patch"
+          rm -f scripts/*.rej export_presets.cfg.rej
+
+      - name: Force every real artwork to full-art 2:3 mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          card=Path('scripts/card_widget.gd')
+          c=card.read_text()
+          old='    full_art = bool(data.get("full_art", false))'
+          assert old in c
+          c=c.replace(old,'    # Any real artwork IS the finished card. Never rebuild a software card around it.\n    full_art = str(data.get("art", "")) != "" or bool(data.get("full_art", false))')
+          card.write_text(c)
+          exp=Path('export_presets.cfg')
+          e=exp.read_text()
+          e=re.sub(r'export_path="build/[^"]+\.apk"','export_path="build/HORRIVALS-v0.4.3-fullart.apk"',e)
+          e=re.sub(r'version/code=\d+','version/code=11',e)
+          e=re.sub(r'version/name="[^"]+"','version/name="0.4.3"',e)
+          exp.write_text(e)
+          PY
+
+      - name: Validate automatic full-art behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('horrivals/v043_project')
+          cards=json.loads((root/'data/cards.json').read_text())
+          assert len(cards)==120
+          assert len({c['id'] for c in cards})==120
+          art=[c for c in cards if c.get('art')]
+          assert len(art)>=5
+          print('Roster:',len(cards),'bundled artworks in this base:',len(art))
+          PY
+          grep -q 'full_art = str(data.get("art", "")) != "" or bool(data.get("full_art", false))' "$PROJECT_DIR/scripts/card_widget.gd"
+          grep -q 'STRETCH_KEEP_ASPECT_CENTERED' "$PROJECT_DIR/scripts/card_widget.gd"
+          grep -q 'No software frame, labels, duplicate stats' "$PROJECT_DIR/scripts/card_widget.gd"
+          grep -q 'card_w: float = card_h \* (2.0 / 3.0)' "$PROJECT_DIR/scripts/main.gd"
+          grep -q 'version/name="0.4.3"' "$PROJECT_DIR/export_presets.cfg"
+          grep -q 'version/code=11' "$PROJECT_DIR/export_presets.cfg"
+          ! grep -Rni 'effroi' "$PROJECT_DIR/scripts"
+
+      - name: Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v4.0.1
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: 'false'
+
+      - name: Download Godot and templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-${GODOT_STATUS}"
+          curl -fL --retry 3 "$BASE/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip" -o /tmp/godot.zip
+          curl -fL --retry 3 "$BASE/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz" -o /tmp/templates.tpz
+          mkdir -p "$HOME/godot-bin" "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}"
+          unzip -q /tmp/godot.zip -d "$HOME/godot-bin"
+          GODOT_BIN="$(find "$HOME/godot-bin" -maxdepth 1 -type f -name 'Godot_*linux.x86_64' | head -1)"
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/templates.tpz -d /tmp/godot-templates
+          cp -a /tmp/godot-templates/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}/"
+          "$GODOT_BIN" --version
+
+      - name: Restore signing cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.horrivals-signing
+          key: horrivals-prototype-signing-v1
+
+      - name: Prepare signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.horrivals-signing"
+          KEYSTORE="$HOME/.horrivals-signing/horrivals-dev.keystore"
+          if [ ! -s "$KEYSTORE" ]; then
+            keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 \
+              -alias horrivalsdev -keyalg RSA -keysize 4096 -validity 10000 \
+              -storepass 'horrivals-dev-2026' -keypass 'horrivals-dev-2026' \
+              -dname 'CN=HORRIVALS Prototype, OU=Game, O=HORRIVALS, C=FR'
+          fi
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=horrivalsdev" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=horrivals-dev-2026" >> "$GITHUB_ENV"
+
+      - name: Import and validate GDScript
+        working-directory: horrivals/v043_project
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --editor --import --quit --path . 2>&1 | tee "$RUNNER_TEMP/godot-import.log"
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script|Error importing' "$RUNNER_TEMP/godot-import.log"; then exit 1; fi
+
+      - name: Runtime smoke test
+        working-directory: horrivals/v043_project
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --path . --quit-after 10 2>&1 | tee "$RUNNER_TEMP/godot-runtime.log"
+          if grep -E 'SCRIPT ERROR|Invalid call|Invalid argument|ERROR: Failed to load' "$RUNNER_TEMP/godot-runtime.log"; then exit 1; fi
+
+      - name: Export signed APK
+        working-directory: horrivals/v043_project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          "$GODOT_BIN" --headless --path . --export-release Android "build/$APK_NAME" 2>&1 | tee "$RUNNER_TEMP/godot-export.log"
+          test -s "build/$APK_NAME"
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$GITHUB_WORKSPACE/$PROJECT_DIR/build/$APK_NAME"
+          OUT="$GITHUB_WORKSPACE/horrivals/package-v043-fullart"
+          mkdir -p "$OUT"
+          cp "$APK" "$OUT/$APK_NAME"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT/$APK_NAME" | tee "$OUT/CERTIFICATE_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/$APK_NAME" | tee "$OUT/ZIPALIGN_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$OUT/$APK_NAME" | tee "$OUT/APK_BADGING.txt"
+          grep -q "package: name='com.horrivals.combat'" "$OUT/APK_BADGING.txt"
+          grep -q "versionName='0.4.3'" "$OUT/APK_BADGING.txt"
+          grep -q "versionCode='11'" "$OUT/APK_BADGING.txt"
+          sha256sum "$OUT/$APK_NAME" | tee "$OUT/APK_SHA256.txt"
+          printf '%s\n' \
+            'HORRIVALS V0.4.3 AUTOMATIC FULL-ART' \
+            'Any card with an artwork path is rendered as the complete card.' \
+            'Artwork is keep-aspect centered inside an exact 2:3 card widget.' \
+            'No software frame or duplicate stats on illustrated cards.' \
+            'Imported user cards use the same automatic full-art path.' \
+            'Physical-device test: not performed by CI.' \
+            > "$OUT/BUILD_REPORT.txt"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HORRIVALS_V0.4.3_AUTOMATIC_FULLART_APK
+          path: horrivals/package-v043-fullart/*
+          if-no-files-found: error
+          retention-days: 30

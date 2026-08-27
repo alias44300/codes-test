@@ -1,0 +1,180 @@
+name: HORRIVALS V0.4.0 Import Android APK
+
+on:
+  push:
+    branches: [horrivals-v040-import]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GODOT_VERSION: 4.7.2
+      GODOT_STATUS: stable
+      PROJECT_DIR: horrivals/v040_project
+      APK_NAME: HORRIVALS-v0.4.0-import.apk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild V0.4.0 source and apply importer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s horrivals/v033/source.zip
+          unzip -t horrivals/v033/source.zip >/dev/null
+          rm -rf "$PROJECT_DIR"
+          mkdir -p "$PROJECT_DIR"
+          unzip -q horrivals/v033/source.zip -d "$PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          patch -p0 < "$GITHUB_WORKSPACE/horrivals/v040/import_mode.patch"
+          test -f project.godot
+          test -f scripts/main.gd
+          test -f scripts/card_widget.gd
+          test -f export_presets.cfg
+
+      - name: Validate importer and roster
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('horrivals/v040_project')
+          cards=json.loads((root/'data/cards.json').read_text())
+          assert len(cards)==120, len(cards)
+          assert len({c['id'] for c in cards})==120
+          art=[c for c in cards if c.get('art')]
+          assert len(art)==42, len(art)
+          for c in art:
+              p=root/c['art'].removeprefix('res://')
+              assert p.is_file() and p.stat().st_size>5000,(c['id'],p)
+          for pack in ('frisson.webp','cauchemar.webp','maudit.webp'):
+              p=root/'assets/packs'/pack
+              assert p.is_file() and p.stat().st_size>5000,p
+          print('Roster:',len(cards),'Embedded art:',len(art))
+          PY
+          grep -q 'version/name="0.4.0"' "$PROJECT_DIR/export_presets.cfg"
+          grep -q 'version/code=8' "$PROJECT_DIR/export_presets.cfg"
+          grep -q 'AJOUTER MES CARTES' "$PROJECT_DIR/scripts/main.gd"
+          grep -q 'DisplayServer.file_dialog_show' "$PROJECT_DIR/scripts/main.gd"
+          grep -q 'user://custom_cards' "$PROJECT_DIR/scripts/main.gd"
+          grep -q 'custom_art_paths' "$PROJECT_DIR/scripts/main.gd"
+          grep -q '_load_art_texture' "$PROJECT_DIR/scripts/card_widget.gd"
+          grep -q 'path.begins_with("user://")' "$PROJECT_DIR/scripts/card_widget.gd"
+          ! grep -Rni 'effroi' "$PROJECT_DIR/scripts"
+
+      - name: Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v4.0.1
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: 'false'
+
+      - name: Download Godot 4.7.2 and templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-${GODOT_STATUS}"
+          curl -fL --retry 3 "$BASE/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip" -o /tmp/godot.zip
+          curl -fL --retry 3 "$BASE/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz" -o /tmp/templates.tpz
+          mkdir -p "$HOME/godot-bin" "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}"
+          unzip -q /tmp/godot.zip -d "$HOME/godot-bin"
+          GODOT_BIN="$(find "$HOME/godot-bin" -maxdepth 1 -type f -name 'Godot_*linux.x86_64' | head -1)"
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/templates.tpz -d /tmp/godot-templates
+          cp -a /tmp/godot-templates/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}/"
+          "$GODOT_BIN" --version
+
+      - name: Restore HORRIVALS signing cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.horrivals-signing
+          key: horrivals-prototype-signing-v1
+
+      - name: Prepare signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.horrivals-signing"
+          KEYSTORE="$HOME/.horrivals-signing/horrivals-dev.keystore"
+          if [ ! -s "$KEYSTORE" ]; then
+            keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 \
+              -alias horrivalsdev -keyalg RSA -keysize 4096 -validity 10000 \
+              -storepass 'horrivals-dev-2026' -keypass 'horrivals-dev-2026' \
+              -dname 'CN=HORRIVALS Prototype, OU=Game, O=HORRIVALS, C=FR'
+          fi
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=horrivalsdev" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=horrivals-dev-2026" >> "$GITHUB_ENV"
+
+      - name: Import project and validate GDScript
+        working-directory: horrivals/v040_project
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --editor --import --quit --path . 2>&1 | tee "$RUNNER_TEMP/godot-import.log"
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR: Failed to load script|Error importing' "$RUNNER_TEMP/godot-import.log"; then exit 1; fi
+
+      - name: Runtime smoke test
+        working-directory: horrivals/v040_project
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --path . --quit-after 10 2>&1 | tee "$RUNNER_TEMP/godot-runtime.log"
+          if grep -E 'SCRIPT ERROR|Invalid call|Invalid argument|ERROR: Failed to load' "$RUNNER_TEMP/godot-runtime.log"; then exit 1; fi
+
+      - name: Export signed Android APK
+        working-directory: horrivals/v040_project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          "$GODOT_BIN" --headless --path . --export-release Android "build/$APK_NAME" 2>&1 | tee "$RUNNER_TEMP/godot-export.log"
+          test -s "build/$APK_NAME"
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$GITHUB_WORKSPACE/$PROJECT_DIR/build/$APK_NAME"
+          OUT="$GITHUB_WORKSPACE/horrivals/package-v040-import"
+          mkdir -p "$OUT"
+          cp "$APK" "$OUT/$APK_NAME"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT/$APK_NAME" | tee "$OUT/CERTIFICATE_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/$APK_NAME" | tee "$OUT/ZIPALIGN_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$OUT/$APK_NAME" | tee "$OUT/APK_BADGING.txt"
+          grep -q "package: name='com.horrivals.combat'" "$OUT/APK_BADGING.txt"
+          grep -q "versionName='0.4.0'" "$OUT/APK_BADGING.txt"
+          grep -q "versionCode='8'" "$OUT/APK_BADGING.txt"
+          unzip -l "$OUT/$APK_NAME" > "$OUT/APK_CONTENTS.txt"
+          sha256sum "$OUT/$APK_NAME" | tee "$OUT/APK_SHA256.txt"
+          printf '%s\n' \
+            'HORRIVALS V0.4.0 IMPORT' \
+            'In-game image importer: included' \
+            'Formats: PNG / JPG / JPEG / WEBP' \
+            'Custom images persist in user://custom_cards' \
+            'Roster: 120' \
+            'Embedded illustrated cards: 42' \
+            'Physical Android picker behavior requires phone validation' \
+            > "$OUT/BUILD_REPORT.txt"
+
+      - name: Upload APK package
+        uses: actions/upload-artifact@v4
+        with:
+          name: HORRIVALS_V0.4.0_IMPORT_APK
+          path: horrivals/package-v040-import/*
+          if-no-files-found: error
+          retention-days: 30

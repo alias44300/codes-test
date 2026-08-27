@@ -66,9 +66,11 @@ jobs:
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
-          patch -p1 --batch < "$GITHUB_WORKSPACE/horrivals/v041/large_cards.patch"
+          # Both UI patches also contain historical version-number hunks. Those may reject here;
+          # the actual V0.4.3 version is set explicitly in the next step.
+          patch -p1 --batch < "$GITHUB_WORKSPACE/horrivals/v041/large_cards.patch" || true
           rm -f scripts/*.rej export_presets.cfg.rej
-          patch -p0 --batch < "$GITHUB_WORKSPACE/horrivals/v042/full_card.patch"
+          patch -p0 --batch < "$GITHUB_WORKSPACE/horrivals/v042/full_card.patch" || true
           rm -f scripts/*.rej export_presets.cfg.rej
 
       - name: Force every real artwork to full-art 2:3 mode

@@ -1,0 +1,17 @@
+{
+  "version": "0.3.2",
+  "art_count": 34,
+  "latest_added": [
+    {"id":"HOR-014","name":"Sam","attack":69,"defense":83,"art":"res://assets/cards/hor_014_sam.webp","full_art":true,"sha256":"b28e183a289cbc4100ac3626f1108d6a653297b585817c823be9d183a8d28d75"},
+    {"id":"HOR-015","name":"M3GAN","attack":70,"defense":68,"art":"res://assets/cards/hor_015_m3gan.webp","full_art":true,"sha256":"999e6920ec50a9b3998bf52af7084d0e14d3634f3e982205a6d19fdba7d1e9fb"},
+    {"id":"HOR-017","name":"Hannibal Lecter","attack":47,"defense":34,"art":"res://assets/cards/hor_017_hannibal_lecter.webp","full_art":true,"sha256":"edd7b68ba62368171098ea83ff6d6ac6230af2279be1b8a3bb8965bc926ebf72"},
+    {"id":"HOR-018","name":"Norman Bates","attack":39,"defense":30,"art":"res://assets/cards/hor_018_norman_bates.webp","full_art":true,"sha256":"43615d501a52e6f194f07ce12bca8b114f1bb4c7f7705765968c09bf99ed6500"},
+    {"id":"HOR-019","name":"Jack Torrance","attack":49,"defense":36,"art":"res://assets/cards/hor_019_jack_torrance.webp","full_art":true,"sha256":"87d254c61f1c0b9d1470019e10899c1dea05eaad3508f75aceba6ffb599f2582"},
+    {"id":"HOR-020","name":"Carrie White","attack":90,"defense":55,"art":"res://assets/cards/hor_020_carrie_white.webp","full_art":true,"sha256":"1697c6c226519fa3e35bd895df662da0de30a8837b916d3a77cc5d71338068f3"},
+    {"id":"HOR-021","name":"The Babadook","attack":78,"defense":91,"art":"res://assets/cards/hor_021_babadook.webp","full_art":true,"sha256":"222e6cbddfc250e349526d6e6c7882f5f8c68308ff02b2ceb2df6a040f9874fa"},
+    {"id":"HOR-022","name":"Samara Morgan","attack":85,"defense":92,"art":"res://assets/cards/hor_022_samara_morgan.webp","full_art":true,"sha256":"fbf909d13ec78922610cbdbbf352629032a2ec8e98d2224d59c9c3cb8f0209eb"},
+    {"id":"HOR-023","name":"Kayako Saeki","attack":86,"defense":94,"art":"res://assets/cards/hor_023_kayako_saeki.webp","full_art":true,"sha256":"fdff1245a414f059ad327fe6df179d84b03d6ce5ef3df86a0b36da0efdd370ba"},
+    {"id":"HOR-024","name":"Annabelle","attack":76,"defense":92,"art":"res://assets/cards/hor_024_annabelle.webp","full_art":true,"sha256":"943c86c225b67aa3ec0ff0aafcd78acc3931bb9c122f16f3efd52aac74a3f69e"}
+  ],
+  "source_zip_sha256": "8ec4d1e9a80817e19cebb399c4e7cab13ae95b36f98417e6dfff1e15243b7f72"
+}

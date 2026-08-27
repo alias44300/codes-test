@@ -1,0 +1,3 @@
+.pack-close{position:absolute;right:max(24px,var(--safe-right));top:max(18px,var(--safe-top));z-index:4;width:48px;height:48px;border-radius:50%;background:rgba(7,8,13,.82);border:1px solid rgba(255,255,255,.24);color:white;font:300 34px/1 Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.38);pointer-events:auto}.pack-close:active{transform:scale(.92);background:rgba(255,47,120,.55)}
+.pack-reveal-zone.revealed .pack-close{animation:scBurst .35s ease-out both}
+@media(max-height:620px) and (orientation:landscape){.pack-close{width:40px;height:40px;font-size:28px}.pack-result-copy strong{font-size:42px!important}.pack-result-card{width:min(24vw,210px)!important}}

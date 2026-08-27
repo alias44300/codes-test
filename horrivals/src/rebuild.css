@@ -9,6 +9,7 @@
 /* INPUT LAYERING: menus own input, Phaser owns it only inside battle. */
 #game-canvas{z-index:0;pointer-events:none}
 #game-ui{z-index:20}
+#game-ui .game-splash,#game-ui .premium-home{pointer-events:auto}
 html.battle-active #game-canvas{pointer-events:auto}
 html.battle-active #game-ui{pointer-events:none}
 html.battle-active #game-ui .battle-hud,

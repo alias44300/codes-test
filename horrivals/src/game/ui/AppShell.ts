@@ -1,6 +1,8 @@
 import type { CardData } from '../types';
 import { CardArtStore } from '../storage/CardArtStore';
 
+const PAGE_SIZE = 36;
+
 export class AppShell {
   private root: HTMLElement;
   private roster: CardData[];
@@ -18,59 +20,94 @@ export class AppShell {
 
   showMenu(): void {
     this.root.innerHTML = `
-      <main class="modern-menu">
-        <div class="menu-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
-        <header class="menu-topline">
-          <div class="brand-lockup"><span>HORRIVALS</span><small>MASTER 120 · V8</small></div>
-          <div class="collection-count"><b>120</b><span>RIVAUX</span></div>
+      <main class="home-screen">
+        <header class="home-header">
+          <div class="home-brand"><span>HORRIVALS</span><small>MASTER 120 · V8</small></div>
+          <div class="home-status"><b>120</b><span>CARTES</span></div>
         </header>
 
-        <section class="menu-hero">
-          <div class="hero-copy">
-            <span class="eyebrow">ARÈNE JUMBO XL</span>
-            <h1>CHOISIS 5.<br>FAIS TOMBER 3.</h1>
-            <p>Des duels courts, des cartes immenses et aucune illustration sacrifiée. Chaque carte reste entièrement visible en 2:3.</p>
-            <button class="primary-cta" data-action="battle"><span>COMBATTRE</span><b>›</b></button>
+        <section class="home-main">
+          <div class="home-copy">
+            <span class="eyebrow">JUMBO XL · 2:3</span>
+            <h1>L’ARÈNE<br>DES MONSTRES</h1>
+            <p>Compose 5 cartes, affronte le rival et remporte 3 confrontations.</p>
           </div>
-          <div class="hero-team" aria-label="Équipe actuelle"></div>
+
+          <div class="mode-grid">
+            <button class="mode-tile mode-combat" data-action="battle">
+              <span class="mode-number">01</span><strong>COMBAT</strong><small>5 cartes · premier à 3</small><b>JOUER ›</b>
+            </button>
+            <button class="mode-tile mode-packs" data-action="packs">
+              <span class="mode-number">02</span><strong>PACKS</strong><small>Frisson · Cauchemar · Maudit</small><b>OUVRIR ›</b>
+            </button>
+            <button class="mode-tile" data-action="collection">
+              <span class="mode-number">03</span><strong>COLLECTION</strong><small>120 personnages V8</small>
+            </button>
+            <button class="mode-tile" data-action="team">
+              <span class="mode-number">04</span><strong>ÉQUIPE</strong><small>Composer mes 5 cartes</small>
+            </button>
+          </div>
         </section>
 
-        <nav class="modern-nav">
-          <button data-action="team"><span>01</span><b>ÉQUIPE</b><small>Composer mes 5 cartes</small></button>
-          <button data-action="collection"><span>02</span><b>COLLECTION</b><small>Explorer les 120 rivaux</small></button>
-          <button data-action="import"><span>03</span><b>MES ILLUSTRATIONS</b><small>Importer HOR-XXX / SCI-XXX</small></button>
-        </nav>
-
-        <footer class="menu-footer"><span>2:3 JUMBO XL</span><i></i><span>ATTAQUE / DÉFENSE</span><i></i><span>ANDROID</span></footer>
+        <footer class="home-footer">
+          <button data-action="import">IMPORTER MES ILLUSTRATIONS</button>
+          <span>ATTAQUE · DÉFENSE</span>
+        </footer>
       </main>`;
-
-    const teamStrip = this.root.querySelector('.hero-team')!;
-    this.team.forEach((card, index) => teamStrip.appendChild(this.cardTile(card, false, 'hero-card', index)));
 
     this.root.querySelector('[data-action="battle"]')!.addEventListener('click', () => {
       if (this.team.length === 5) this.startBattle(this.team);
       else this.showTeam();
     });
+    this.root.querySelector('[data-action="packs"]')!.addEventListener('click', () => this.showPacks());
     this.root.querySelector('[data-action="team"]')!.addEventListener('click', () => this.showTeam());
     this.root.querySelector('[data-action="collection"]')!.addEventListener('click', () => this.showCollection());
     this.root.querySelector('[data-action="import"]')!.addEventListener('click', () => this.openImport());
+  }
+
+  private showPacks(): void {
+    this.root.innerHTML = `
+      <section class="modern-panel packs-screen">
+        ${this.panelHeader('PACKS', 'OUVERTURE', '<b>3</b><span>PACKS</span>')}
+        <main class="packs-content">
+          <div class="packs-intro"><span>CHOISIS TON PACK</span><p>Une carte révélée à la fois. Aucun système de rareté n’est appliqué.</p></div>
+          <div class="packs-grid">
+            <button class="pack-card pack-frisson" data-pack="frisson"><i>01</i><strong>FRISSON</strong><small>1 CARTE</small><b>OUVRIR</b></button>
+            <button class="pack-card pack-cauchemar" data-pack="cauchemar"><i>02</i><strong>CAUCHEMAR</strong><small>1 CARTE</small><b>OUVRIR</b></button>
+            <button class="pack-card pack-maudit" data-pack="maudit"><i>03</i><strong>MAUDIT</strong><small>1 CARTE</small><b>OUVRIR</b></button>
+          </div>
+          <div class="pack-reveal-zone" aria-live="polite"></div>
+        </main>
+      </section>`;
+
+    this.root.querySelector('[data-back]')!.addEventListener('click', () => this.showMenu());
+    this.root.querySelectorAll('[data-pack]').forEach(button => button.addEventListener('click', () => {
+      this.openPack((button as HTMLElement).dataset.pack || 'frisson');
+    }));
+  }
+
+  private openPack(packId: string): void {
+    const zone = this.root.querySelector('.pack-reveal-zone') as HTMLElement | null;
+    if (!zone) return;
+    const card = this.roster[Math.floor(Math.random() * this.roster.length)];
+    const label = packId === 'cauchemar' ? 'CAUCHEMAR' : packId === 'maudit' ? 'MAUDIT' : 'FRISSON';
+    zone.innerHTML = `<div class="pack-result-copy"><small>PACK ${label}</small><strong>${this.escape(card.name)}</strong><span>${this.escape(card.id)} · ATQ ${card.attack} · DEF ${card.defense}</span></div><div class="pack-result-card"></div>`;
+    zone.querySelector('.pack-result-card')!.appendChild(this.cardTile(card, false, 'pack-reveal-card', 0, true));
+    zone.classList.remove('revealed');
+    requestAnimationFrame(() => zone.classList.add('revealed'));
   }
 
   private showTeam(): void {
     const selected = new Set(this.team.map(c => c.id));
     this.root.innerHTML = `
       <section class="modern-panel team-screen">
-        <header class="panel-topbar">
-          <button class="icon-back" data-back aria-label="Retour">‹</button>
-          <div><small>COMPOSITION</small><h1>TON ÉQUIPE</h1></div>
-          <div class="team-counter"><b>${selected.size}</b><span>/ 5</span></div>
-        </header>
+        ${this.panelHeader('TON ÉQUIPE', 'COMPOSITION', `<b class="team-count-value">${selected.size}</b><span>/ 5</span>`)}
         <div class="team-layout">
           <aside class="team-stage">
             <div class="stage-heading"><span>ESCOUADE ACTUELLE</span><small>5 cartes pour entrer dans l’arène</small></div>
             <div class="team-fan"></div>
             <div class="team-summary"></div>
-            <button class="primary-cta team-battle" data-battle ${selected.size === 5 ? '' : 'disabled'}><span>ENTRER DANS L’ARÈNE</span><b>›</b></button>
+            <button class="primary-cta team-battle" data-battle ${selected.size === 5 ? '' : 'disabled'}>COMBATTRE <b>›</b></button>
           </aside>
           <main class="team-browser">
             <div class="browser-tools">
@@ -87,11 +124,12 @@ export class AppShell {
     const grid = this.root.querySelector('.roster-grid')!;
     const search = this.root.querySelector('[data-search]') as HTMLInputElement;
     let filter = 'all';
+    let visibleCount = PAGE_SIZE;
 
     const refreshFan = () => {
       fan.innerHTML = '';
       const current = this.roster.filter(c => selected.has(c.id));
-      current.forEach((card, index) => fan.appendChild(this.cardTile(card, true, 'team-card', index)));
+      current.forEach((card, index) => fan.appendChild(this.cardTile(card, true, 'team-card', index, true)));
       for (let i = current.length; i < 5; i++) {
         const empty = document.createElement('div');
         empty.className = 'team-slot-empty';
@@ -101,7 +139,7 @@ export class AppShell {
       const avgAttack = current.length ? Math.round(current.reduce((n, c) => n + c.attack, 0) / current.length) : 0;
       const avgDefense = current.length ? Math.round(current.reduce((n, c) => n + c.defense, 0) / current.length) : 0;
       summary.innerHTML = `<span><small>ATTAQUE MOY.</small><b>${avgAttack}</b></span><i></i><span><small>DÉFENSE MOY.</small><b>${avgDefense}</b></span>`;
-      const counter = this.root.querySelector('.team-counter b')!;
+      const counter = this.root.querySelector('.team-count-value')!;
       counter.textContent = String(current.length);
       const battle = this.root.querySelector('[data-battle]') as HTMLButtonElement;
       battle.disabled = current.length !== 5;
@@ -110,14 +148,13 @@ export class AppShell {
 
     const renderGrid = () => {
       const q = search.value.trim().toLowerCase();
-      grid.innerHTML = '';
       const cards = this.roster.filter(card => {
         const series = card.id.startsWith('SCI-') ? 'SCI' : 'HOR';
-        const matchesFilter = filter === 'all' || series === filter;
-        const matchesText = !q || `${card.id} ${card.name} ${card.universe}`.toLowerCase().includes(q);
-        return matchesFilter && matchesText;
+        return (filter === 'all' || series === filter) && (!q || `${card.id} ${card.name} ${card.universe}`.toLowerCase().includes(q));
       });
-      cards.forEach(card => {
+      grid.innerHTML = '';
+      const fragment = document.createDocumentFragment();
+      cards.slice(0, visibleCount).forEach(card => {
         const tile = this.cardTile(card, selected.has(card.id));
         tile.addEventListener('click', () => {
           if (selected.has(card.id)) selected.delete(card.id);
@@ -125,16 +162,25 @@ export class AppShell {
           refreshFan();
           renderGrid();
         });
-        grid.appendChild(tile);
+        fragment.appendChild(tile);
       });
+      grid.appendChild(fragment);
+      if (visibleCount < cards.length) {
+        const more = document.createElement('button');
+        more.className = 'load-more';
+        more.textContent = `AFFICHER PLUS · ${cards.length - visibleCount}`;
+        more.addEventListener('click', () => { visibleCount += PAGE_SIZE; renderGrid(); });
+        grid.appendChild(more);
+      }
     };
 
     this.root.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => {
       filter = (button as HTMLElement).dataset.filter || 'all';
+      visibleCount = PAGE_SIZE;
       this.root.querySelectorAll('[data-filter]').forEach(b => b.classList.toggle('active', b === button));
       renderGrid();
     }));
-    search.addEventListener('input', renderGrid);
+    search.addEventListener('input', () => { visibleCount = PAGE_SIZE; renderGrid(); });
     this.root.querySelector('[data-back]')!.addEventListener('click', () => this.showMenu());
     this.root.querySelector('[data-battle]')!.addEventListener('click', () => { if (this.team.length === 5) this.startBattle(this.team); });
     refreshFan();
@@ -145,11 +191,7 @@ export class AppShell {
     let active = this.roster[0];
     this.root.innerHTML = `
       <section class="modern-panel collection-screen">
-        <header class="panel-topbar">
-          <button class="icon-back" data-back aria-label="Retour">‹</button>
-          <div><small>MASTER 120 · V8</small><h1>COLLECTION</h1></div>
-          <div class="collection-total"><b>120</b><span>CARTES</span></div>
-        </header>
+        ${this.panelHeader('COLLECTION', 'MASTER 120 · V8', '<b>120</b><span>CARTES</span>')}
         <div class="collection-layout">
           <aside class="collection-spotlight"></aside>
           <main class="collection-browser">
@@ -166,6 +208,7 @@ export class AppShell {
     const grid = this.root.querySelector('.collection-grid')!;
     const search = this.root.querySelector('[data-search]') as HTMLInputElement;
     let filter = 'all';
+    let visibleCount = PAGE_SIZE;
 
     const renderSpotlight = (card: CardData) => {
       active = card;
@@ -178,47 +221,65 @@ export class AppShell {
           <div class="spotlight-stats"><span><small>ATTAQUE</small><b>${card.attack}</b></span><span><small>DÉFENSE</small><b>${card.defense}</b></span></div>
           <button data-import-one>REMPLACER L’ILLUSTRATION</button>
         </div>`;
-      const cardSlot = spotlight.querySelector('.spotlight-card')!;
-      cardSlot.appendChild(this.cardTile(card, false, 'preview-card'));
+      spotlight.querySelector('.spotlight-card')!.appendChild(this.cardTile(card, false, 'preview-card', 0, true));
       spotlight.querySelector('[data-import-one]')!.addEventListener('click', () => this.openImport(card.id));
     };
 
     const renderGrid = () => {
       const q = search.value.trim().toLowerCase();
-      grid.innerHTML = '';
-      this.roster.filter(card => {
+      const cards = this.roster.filter(card => {
         const series = card.id.startsWith('SCI-') ? 'SCI' : 'HOR';
         return (filter === 'all' || series === filter) && (!q || `${card.id} ${card.name} ${card.universe}`.toLowerCase().includes(q));
-      }).forEach(card => {
+      });
+      grid.innerHTML = '';
+      const fragment = document.createDocumentFragment();
+      cards.slice(0, visibleCount).forEach(card => {
         const tile = this.cardTile(card, card.id === active.id);
         tile.addEventListener('click', () => { renderSpotlight(card); renderGrid(); });
-        grid.appendChild(tile);
+        fragment.appendChild(tile);
       });
+      grid.appendChild(fragment);
+      if (visibleCount < cards.length) {
+        const more = document.createElement('button');
+        more.className = 'load-more';
+        more.textContent = `AFFICHER PLUS · ${cards.length - visibleCount}`;
+        more.addEventListener('click', () => { visibleCount += PAGE_SIZE; renderGrid(); });
+        grid.appendChild(more);
+      }
     };
 
     this.root.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => {
       filter = (button as HTMLElement).dataset.filter || 'all';
+      visibleCount = PAGE_SIZE;
       this.root.querySelectorAll('[data-filter]').forEach(b => b.classList.toggle('active', b === button));
       renderGrid();
     }));
-    search.addEventListener('input', renderGrid);
+    search.addEventListener('input', () => { visibleCount = PAGE_SIZE; renderGrid(); });
     this.root.querySelector('[data-back]')!.addEventListener('click', () => this.showMenu());
     renderSpotlight(active);
     renderGrid();
   }
 
-  private cardTile(card: CardData, selected: boolean, extraClass = '', index = 0): HTMLElement {
+  private panelHeader(title: string, eyebrow: string, trailing: string): string {
+    return `<header class="panel-topbar"><button class="icon-back" data-back aria-label="Retour">‹</button><div><small>${eyebrow}</small><h1>${title}</h1></div><div class="panel-trailing">${trailing}</div></header>`;
+  }
+
+  private cardTile(card: CardData, selected: boolean, extraClass = '', index = 0, eager = false): HTMLElement {
     const el = document.createElement('button');
     el.className = `collection-card ${extraClass}${selected ? ' selected' : ''}`.trim();
     el.style.setProperty('--card-index', String(index));
     el.innerHTML = `<div class="card-fallback"><b>${this.escape(card.id)}</b><strong>${this.escape(card.name)}</strong><small>ATQ ${card.attack} · DEF ${card.defense}</small></div>`;
+
+    if (card.art) this.setCardImage(el, card, card.art, eager);
     void this.artStore.getObjectUrl(card.id).then(importedUrl => {
-      if (!el.isConnected) return;
-      const url = importedUrl || card.art || '';
-      if (!url) return;
-      el.innerHTML = `<img src="${this.escape(url)}" alt="${this.escape(card.name)}"><span>${this.escape(card.id)}</span>`;
+      if (!el.isConnected || !importedUrl) return;
+      this.setCardImage(el, card, importedUrl, eager);
     });
     return el;
+  }
+
+  private setCardImage(el: HTMLElement, card: CardData, url: string, eager: boolean): void {
+    el.innerHTML = `<img src="${this.escape(url)}" alt="${this.escape(card.name)}" loading="${eager ? 'eager' : 'lazy'}" decoding="async"><span>${this.escape(card.id)}</span>`;
   }
 
   private openImport(onlyId?: string): void {
@@ -249,6 +310,6 @@ export class AppShell {
   }
 
   private escape(value: string): string {
-    return value.replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char] || char));
+    return value.replace(/[&<>'\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '\"': '&quot;' }[char] || char));
   }
 }

@@ -29,23 +29,31 @@ export class CardArtStore {
     });
   }
 
+  async putForCard(cardId: string, file: File | Blob): Promise<void> {
+    if (!(file instanceof Blob) || !file.type.startsWith('image/')) {
+      throw new Error('Le fichier choisi n’est pas une image valide.');
+    }
+    const db = await this.dbPromise;
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(file, cardId);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('Import annulé.'));
+    });
+    this.revoke(cardId);
+  }
+
   async importFiles(files: FileList | File[], knownIds: Set<string>): Promise<ImportResult> {
     const imported: string[] = [];
     const rejected: string[] = [];
-    const db = await this.dbPromise;
     for (const file of Array.from(files)) {
       const id = normalizeIdFromName(file.name);
       if (!id || !knownIds.has(id) || !file.type.startsWith('image/')) {
         rejected.push(file.name);
         continue;
       }
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).put(file, id);
-      await new Promise<void>((resolve, reject) => {
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-      this.revoke(id);
+      await this.putForCard(id, file);
       imported.push(id);
     }
     return { imported, rejected };

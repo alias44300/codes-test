@@ -12,6 +12,9 @@ async function boot(): Promise<void> {
   const artStore = new CardArtStore();
   const uiRoot = document.getElementById('game-ui')!;
 
+  // IMPORTANT: do not auto-start ArenaScene. It requires roster/team payload.
+  // The old build registered ArenaScene as the first startup scene, so Phaser
+  // tried to initialize it with no payload and the canvas remained black.
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game-canvas',
@@ -19,19 +22,32 @@ async function boot(): Promise<void> {
     height: DESIGN_HEIGHT,
     backgroundColor: '#06070b',
     render: { antialias: true, pixelArt: false, roundPixels: false },
-    fps: { target: 60, min: 30 },
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: DESIGN_WIDTH, height: DESIGN_HEIGHT },
-    scene: [ArenaScene],
+    fps: { target: 60, min: 30, smoothStep: true },
+    scale: {
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+      width: DESIGN_WIDTH,
+      height: DESIGN_HEIGHT,
+    },
+    scene: [],
   });
+
+  game.scene.add('arena', new ArenaScene(), false);
 
   const shell = new AppShell(uiRoot, roster, artStore, team => {
+    if (team.length !== 5) {
+      shell.showTeam();
+      return;
+    }
     uiRoot.innerHTML = '';
-    game.scene.start('arena', { roster, team, artStore });
+    if (game.scene.isActive('arena')) game.scene.stop('arena');
+    game.scene.start('arena', { roster, team: [...team], artStore });
   });
-  shell.showMenu();
+
+  shell.showSplash();
 
   window.addEventListener('horrivals:menu', () => {
-    game.scene.stop('arena');
+    if (game.scene.isActive('arena')) game.scene.stop('arena');
     shell.showMenu();
   });
 

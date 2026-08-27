@@ -8,7 +8,7 @@ on:
 jobs:
   android:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,6 +34,14 @@ jobs:
       - name: Typecheck and build web game
         working-directory: horrivals
         run: npm run build
+
+      - name: Install Chromium for smoke test
+        working-directory: horrivals
+        run: npx playwright install --with-deps chromium
+
+      - name: Playtest menu and combat flow
+        working-directory: horrivals
+        run: npm run test:smoke
 
       - name: Create Capacitor Android project
         working-directory: horrivals

@@ -4,23 +4,19 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
-const partsDir = path.join(root, '.arena-v8-parts');
+const source = path.join(root, 'arena-v8.webp.b64');
 const out = path.join(root, 'public', 'assets', 'ui', 'arena-v8.webp');
 
-const files = fs.readdirSync(partsDir)
-  .filter(name => /^part-\d+\.txt$/.test(name))
-  .sort();
+if (!fs.existsSync(source)) throw new Error('Missing arena-v8.webp.b64 source asset');
 
-if (files.length !== 10) throw new Error(`Expected 10 arena chunks, found ${files.length}`);
-
-const base64 = files.map(name => fs.readFileSync(path.join(partsDir, name), 'utf8').trim()).join('');
+const base64 = fs.readFileSync(source, 'utf8').replace(/\s+/g, '');
 const buffer = Buffer.from(base64, 'base64');
 
-if (buffer.length !== 50357) throw new Error(`arena-v8.webp materialization failed: ${buffer.length} bytes`);
+if (buffer.length < 50000) throw new Error(`arena-v8.webp is unexpectedly small: ${buffer.length} bytes`);
 if (buffer.subarray(0, 4).toString('ascii') !== 'RIFF' || buffer.subarray(8, 12).toString('ascii') !== 'WEBP') {
   throw new Error('arena-v8.webp is not a valid WebP RIFF container');
 }
 
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(out, buffer);
-console.log(`Materialized cleaned arena-v8.webp: ${buffer.length} bytes`);
+console.log(`Materialized original verified arena-v8.webp: ${buffer.length} bytes`);

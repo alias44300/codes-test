@@ -3,19 +3,15 @@ import { DESIGN_HEIGHT, DESIGN_WIDTH } from './game/config';
 import { ArenaScene } from './game/scenes/ArenaScene';
 
 const ARENA_KEY = '__arena_v8_illustrated';
-const ARENA_URL = '/assets/ui/arena-v8.webp';
+const ARENA_URL = 'assets/ui/arena-v8.webp';
 
 function drawIllustratedArena(scene: Phaser.Scene): void {
   scene.cameras.main.setBackgroundColor('#020307');
-
-  // V9 uses a cleaned arena asset: no baked HUD, score, round text, fear controls,
-  // quit button, card labels or placeholder card copy remain in the background.
   scene.add.image(DESIGN_WIDTH / 2, DESIGN_HEIGHT / 2, ARENA_KEY)
     .setOrigin(0.5)
     .setDisplaySize(DESIGN_WIDTH, DESIGN_HEIGHT)
     .setDepth(-30);
 
-  // Very soft floor energy only. Nothing is drawn over the card faces.
   const floorGlowLeft = scene.add.ellipse(DESIGN_WIDTH * 0.33, DESIGN_HEIGHT * 0.74, 250, 48, 0xff3f7f, 0.025).setDepth(-20);
   const floorGlowRight = scene.add.ellipse(DESIGN_WIDTH * 0.67, DESIGN_HEIGHT * 0.74, 250, 48, 0x43d8ff, 0.025).setDepth(-20);
   scene.tweens.add({

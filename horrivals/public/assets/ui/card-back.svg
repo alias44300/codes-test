@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#15101f"/><stop offset="0.48" stop-color="#3a142d"/><stop offset="1" stop-color="#120a18"/>
+    </linearGradient>
+    <pattern id="p" width="54" height="54" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="54" height="54" fill="none"/><path d="M0 27H54" stroke="#7f315b" stroke-opacity=".24" stroke-width="8"/></pattern>
+  </defs>
+  <rect x="8" y="8" width="584" height="884" rx="54" fill="url(#g)" stroke="#d34983" stroke-width="16"/>
+  <rect x="30" y="30" width="540" height="840" rx="40" fill="url(#p)" stroke="#5d2749" stroke-width="5"/>
+  <path d="M135 430L300 245l165 185-165 225z" fill="#0f0a15" stroke="#f25b97" stroke-width="18"/>
+  <path d="M222 415l78-88 78 88-78 109z" fill="#c83b75" opacity=".92"/>
+  <text x="300" y="720" text-anchor="middle" fill="#fff1f7" font-family="Arial Black, sans-serif" font-size="70" letter-spacing="4">HORRIVALS</text>
+  <text x="300" y="775" text-anchor="middle" fill="#f25b97" font-family="Arial, sans-serif" font-size="28" letter-spacing="9">JUMBO XL</text>
+</svg>

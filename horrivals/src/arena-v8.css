@@ -1,0 +1,32 @@
+html.arena-v8-illustrated.battle-active .scx-battle-hud{position:fixed!important;inset:0!important;background:transparent!important;pointer-events:none!important;z-index:150!important;font-family:Arial,Helvetica,sans-serif!important}
+html.arena-v8-illustrated.battle-active .scx-battle-hud>*{pointer-events:none!important}
+
+/* One stable scoreboard. The centre owns a fixed 260px lane so round text can never collide with pips. */
+html.arena-v8-illustrated.battle-active .scx-battle-score{position:absolute!important;top:10px!important;left:50%!important;transform:translateX(-50%)!important;width:min(920px,72vw)!important;height:62px!important;box-sizing:border-box!important;display:grid!important;grid-template-columns:minmax(210px,1fr) 260px minmax(210px,1fr)!important;align-items:center!important;gap:12px!important;padding:0 24px!important;background:rgba(2,3,7,.91)!important;border:1px solid rgba(255,255,255,.13)!important;clip-path:polygon(3% 0,97% 0,100% 50%,97% 100%,3% 100%,0 50%)!important;box-shadow:0 10px 32px rgba(0,0,0,.42)!important;overflow:hidden!important}
+html.arena-v8-illustrated.battle-active .scx-score-side{min-width:0!important;display:flex!important;align-items:center!important;gap:11px!important;color:#fff!important;font-weight:900!important;letter-spacing:.11em!important;font-size:15px!important;white-space:nowrap!important}
+html.arena-v8-illustrated.battle-active .scx-score-side.rival{justify-content:flex-end!important}
+html.arena-v8-illustrated.battle-active .score-pips{display:flex!important;gap:7px!important;flex:0 0 auto!important}
+html.arena-v8-illustrated.battle-active .score-pips>*{width:22px!important;height:7px!important;border-radius:8px!important;flex:0 0 22px!important}
+html.arena-v8-illustrated.battle-active .hud-round{width:260px!important;min-width:260px!important;max-width:260px!important;box-sizing:border-box!important;text-align:center!important;color:#fff!important;font-size:18px!important;font-weight:1000!important;letter-spacing:.06em!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:clip!important}
+
+/* Edge-only live information. No tall panels over the arena. */
+html.arena-v8-illustrated.battle-active .hud-role{position:absolute!important;left:18px!important;top:96px!important;bottom:auto!important;max-width:190px!important;padding:9px 13px!important;background:rgba(3,4,9,.88)!important;border-left:4px solid #ff3f7f!important;border-radius:0 8px 8px 0!important;color:#fff!important;font-weight:900!important;letter-spacing:.08em!important;font-size:13px!important;text-transform:uppercase!important;white-space:nowrap!important}
+html.arena-v8-illustrated.battle-active .hud-fear{position:absolute!important;right:18px!important;top:96px!important;display:flex!important;align-items:baseline!important;gap:9px!important;padding:8px 12px!important;background:rgba(3,4,9,.88)!important;border-right:4px solid #43d8ff!important;border-radius:8px 0 0 8px!important;color:#fff!important}
+html.arena-v8-illustrated.battle-active .hud-fear small{font-size:10px!important;letter-spacing:.12em!important;font-weight:900!important;white-space:nowrap!important}
+html.arena-v8-illustrated.battle-active .hud-fear b{font-size:25px!important;color:#ff4f8b!important;line-height:1!important}
+
+/* Stat choice happens on the card. Remove old helper popups that looked like parasite menus. */
+html.arena-v8-illustrated.battle-active .arena-duel-badge{display:none!important}
+html.arena-v8-illustrated.battle-active .battle-message{display:none!important}
+
+/* Effroi is the only contextual control and always appears in the same bottom-centre location. */
+html.arena-v8-illustrated.battle-active .duel-controls{position:absolute!important;left:50%!important;bottom:14px!important;transform:translateX(-50%) translateY(10px)!important;display:flex!important;align-items:center!important;gap:8px!important;min-height:46px!important;padding:6px 9px!important;background:rgba(3,4,9,.94)!important;border:1px solid rgba(255,63,127,.42)!important;border-radius:11px!important;box-shadow:0 8px 26px rgba(0,0,0,.4)!important;opacity:0!important;visibility:hidden!important;transition:opacity .14s ease,transform .14s ease!important;white-space:nowrap!important}
+html.arena-v8-illustrated.battle-active .duel-controls.visible{opacity:1!important;visibility:visible!important;transform:translateX(-50%) translateY(0)!important}
+html.arena-v8-illustrated.battle-active .duel-controls button{pointer-events:auto!important;width:42px!important;height:38px!important;border:0!important;border-radius:7px!important;background:#19131d!important;color:#fff!important;font-size:25px!important;font-weight:900!important}
+html.arena-v8-illustrated.battle-active .duel-controls .fear-spend{min-width:32px!important;text-align:center!important;color:#ff4f8b!important;font-size:23px!important;font-weight:1000!important}
+
+html.arena-v8-illustrated.battle-active .battle-exit{pointer-events:auto!important;position:absolute!important;right:18px!important;bottom:16px!important;width:46px!important;height:46px!important;border:1px solid rgba(255,255,255,.2)!important;background:rgba(3,4,9,.92)!important;color:#fff!important;font-size:0!important;font-weight:900!important;border-radius:9px!important}
+html.arena-v8-illustrated.battle-active .battle-exit::before{content:'×';font-size:29px;line-height:44px}
+
+@media(max-width:1100px){html.arena-v8-illustrated.battle-active .scx-battle-score{width:min(820px,78vw)!important;grid-template-columns:minmax(180px,1fr) 230px minmax(180px,1fr)!important;padding:0 18px!important}html.arena-v8-illustrated.battle-active .hud-round{width:230px!important;min-width:230px!important;max-width:230px!important;font-size:16px!important}}
+@media(max-height:620px){html.arena-v8-illustrated.battle-active .scx-battle-score{top:6px!important;height:52px!important}html.arena-v8-illustrated.battle-active .hud-role,html.arena-v8-illustrated.battle-active .hud-fear{top:68px!important}}

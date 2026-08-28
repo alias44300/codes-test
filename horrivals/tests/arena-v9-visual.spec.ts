@@ -8,6 +8,15 @@ test('V9 cleaned arena has no parasite overlays and round label never collides w
   expect((await asset.body()).length).toBeGreaterThan(45_000);
 
   await page.goto('/');
+  const decoded = await page.evaluate(async () => {
+    const img = new Image();
+    img.src = '/assets/ui/arena-v8.webp';
+    await img.decode();
+    return { width: img.naturalWidth, height: img.naturalHeight };
+  });
+  expect(decoded.width).toBeGreaterThanOrEqual(1200);
+  expect(decoded.height).toBeGreaterThanOrEqual(700);
+
   await page.locator('.scx-splash').click();
   await page.getByRole('button', { name: /JOUER/i }).click();
 

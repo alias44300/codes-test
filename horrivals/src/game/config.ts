@@ -16,7 +16,7 @@ export const RULES: BattleRules = {
 export const UI = {
   handCardHeight: 168,
   aiBackHeight: 128,
-  duelCardHeight: 520,
+  duelCardHeight: 390,
   duelCardGap: 76,
   maxPersistentHudCoverage: 0.14,
 };

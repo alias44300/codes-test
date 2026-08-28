@@ -1,9 +1,13 @@
 import { expect, test } from '@playwright/test';
 
-test('boots into a card-first home, opens V7 arena combat, and returns cleanly', async ({ page }) => {
+test('boots into a card-first home, opens V8 illustrated arena combat, and returns cleanly', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+
+  const arenaAsset = await page.request.get('/assets/ui/arena-v8.webp');
+  expect(arenaAsset.ok()).toBeTruthy();
+  expect((await arenaAsset.body()).length).toBeGreaterThan(10_000);
 
   await page.goto('/');
   await page.locator('.scx-splash').click();
@@ -15,7 +19,7 @@ test('boots into a card-first home, opens V7 arena combat, and returns cleanly',
   await expect(page.locator('.browser-tools')).toHaveCount(0);
 
   await page.getByRole('button', { name: /JOUER/i }).click();
-  await expect(page.locator('html')).toHaveClass(/arena-v7-enabled/);
+  await expect(page.locator('html')).toHaveClass(/arena-v8-illustrated/);
   await expect(page.locator('.scx-battle-hud')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('#game-canvas canvas')).toBeVisible();
   await expect(page.locator('.battle-exit')).toBeVisible();

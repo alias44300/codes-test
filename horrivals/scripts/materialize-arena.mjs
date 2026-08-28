@@ -20,7 +20,7 @@ const base64 = files
   .join('');
 const buffer = Buffer.from(base64, 'base64');
 
-if (buffer.length !== 59032) {
+if (buffer.length !== 50358) {
   throw new Error(`arena-v8.webp materialization failed: ${buffer.length} bytes`);
 }
 if (buffer.subarray(0, 4).toString('ascii') !== 'RIFF' || buffer.subarray(8, 12).toString('ascii') !== 'WEBP') {
@@ -29,4 +29,4 @@ if (buffer.subarray(0, 4).toString('ascii') !== 'RIFF' || buffer.subarray(8, 12)
 
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(out, buffer);
-console.log(`Materialized arena-v8.webp: ${buffer.length} bytes`);
+console.log(`Materialized cleaned arena-v8.webp: ${buffer.length} bytes`);

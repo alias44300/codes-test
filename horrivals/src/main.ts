@@ -8,8 +8,9 @@ import { installShowFx } from './showFx';
 import { installV5AuditFixes } from './v5AuditFixes';
 import './styles.css';
 import './supercard-input-fix.css';
+import './arena-v8.css';
 import { installSupercardRebuild } from './supercardRebuild';
-import { installArenaV7 } from './arenaV7';
+import { installArenaV8 } from './arenaV8';
 
 async function boot(): Promise<void> {
   const catalog = new CardCatalog();
@@ -22,7 +23,7 @@ async function boot(): Promise<void> {
   installShowFx();
   installV5AuditFixes();
   installSupercardRebuild();
-  installArenaV7();
+  installArenaV8();
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,

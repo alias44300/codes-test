@@ -75,3 +75,4 @@ jobs:
           path: |
             horrivals/android/app/build/outputs/apk/debug/app-debug.apk
             horrivals/android/app/build/outputs/apk/debug/SHA256SUMS.txt
+            horrivals/test-results/arena-v9-clean.png

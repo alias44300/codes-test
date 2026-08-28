@@ -11,18 +11,12 @@ const files = fs.readdirSync(partsDir)
   .filter(name => /^part-\d+\.txt$/.test(name))
   .sort();
 
-if (files.length !== 10) {
-  throw new Error(`Expected 10 arena chunks, found ${files.length}`);
-}
+if (files.length !== 10) throw new Error(`Expected 10 arena chunks, found ${files.length}`);
 
-const base64 = files
-  .map(name => fs.readFileSync(path.join(partsDir, name), 'utf8').trim())
-  .join('');
+const base64 = files.map(name => fs.readFileSync(path.join(partsDir, name), 'utf8').trim()).join('');
 const buffer = Buffer.from(base64, 'base64');
 
-if (buffer.length !== 50358) {
-  throw new Error(`arena-v8.webp materialization failed: ${buffer.length} bytes`);
-}
+if (buffer.length !== 50357) throw new Error(`arena-v8.webp materialization failed: ${buffer.length} bytes`);
 if (buffer.subarray(0, 4).toString('ascii') !== 'RIFF' || buffer.subarray(8, 12).toString('ascii') !== 'WEBP') {
   throw new Error('arena-v8.webp is not a valid WebP RIFF container');
 }

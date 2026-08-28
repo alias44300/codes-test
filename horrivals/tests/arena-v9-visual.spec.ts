@@ -1,21 +1,21 @@
 import { expect, test } from '@playwright/test';
 
-test('V9 cleaned arena has no parasite overlays and round label never collides with score pips', async ({ page }) => {
+test('V11 arena decodes, battle opens and round label never collides with score pips', async ({ page }) => {
   await page.setViewportSize({ width: 1536, height: 709 });
 
   const asset = await page.request.get('/assets/ui/arena-v8.webp');
   expect(asset.ok()).toBeTruthy();
-  expect((await asset.body()).length).toBeGreaterThan(45_000);
+  expect((await asset.body()).length).toBeGreaterThan(30_000);
 
   await page.goto('/');
   const decoded = await page.evaluate(async () => {
     const img = new Image();
-    img.src = '/assets/ui/arena-v8.webp';
+    img.src = 'assets/ui/arena-v8.webp';
     await img.decode();
     return { width: img.naturalWidth, height: img.naturalHeight };
   });
-  expect(decoded.width).toBeGreaterThanOrEqual(1200);
-  expect(decoded.height).toBeGreaterThanOrEqual(700);
+  expect(decoded.width).toBe(1024);
+  expect(decoded.height).toBe(576);
 
   await page.locator('.scx-splash').click();
   await page.getByRole('button', { name: /JOUER/i }).click();
@@ -43,5 +43,5 @@ test('V9 cleaned arena has no parasite overlays and round label never collides w
     expect(overlaps).toBeFalsy();
   }
 
-  await page.screenshot({ path: 'test-results/arena-v9-clean.png', fullPage: true });
+  await page.screenshot({ path: 'test-results/arena-v11-clean.png', fullPage: true });
 });

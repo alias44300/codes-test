@@ -1,0 +1,114 @@
+name: Naïm Book v1.5 Text-Only APK
+
+on:
+  push:
+    branches: [naim-book-android]
+    paths:
+      - '.github/scripts/naim_textonly_v15.py'
+      - '.github/workflows/naim-book-v15-text-only.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Rebuild book and remove all visuals/search games
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/naim_clean_ui_v11.py
+          python3 .github/scripts/naim_voice_v12.py
+          python3 .github/scripts/naim_illustration_v13.py
+          python3 .github/scripts/naim_bookgame_v14.py
+          python3 .github/scripts/naim_textonly_v15.py
+          PROJECT='naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android'
+          unzip -t naim-book-android/Naim_Mondes_Impossibles_Android_v1.5_TextOnly_Source.zip
+          node --check "$PROJECT/app/src/main/assets/app.js"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          p=Path('naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android')
+          b=json.loads((p/'app/src/main/assets/book.json').read_text(encoding='utf-8'))
+          assert b['pageCount']==240 and b['sceneCount']==60
+          assert sum(len(s['choices']) for c in b['chapters'] for s in c['scenes'])==180
+          html=(p/'app/src/main/assets/index.html').read_text(encoding='utf-8')
+          js=(p/'app/src/main/assets/app.js').read_text(encoding='utf-8')
+          g=(p/'app/build.gradle').read_text(encoding='utf-8')
+          for token in ['pageArtImage','objectHotspot','searchMission','HIDDEN_OBJECTS','PAGE_ILLUSTRATIONS','Cherche dans les images']:
+              assert token not in html+js, token
+          assert not (p/'app/src/main/assets/illustrations').exists()
+          assert all(x in html+js for x in ['Courage','Peur','Curiosité','Gentillesse'])
+          assert "applicationId 'com.naim.mondesimpossibles.reader'" in g
+          assert "versionName '1.5.0'" in g
+          print('240 pages / 180 choices / gauges preserved / zero illustrations / zero search-and-find: OK')
+          PY
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android 35
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Create signing key
+        run: |
+          set -euo pipefail
+          PASS="$(openssl rand -hex 20)"
+          KEYSTORE="$GITHUB_WORKSPACE/naim-book-android/release-v15.keystore"
+          keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 -alias naimbook -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname 'CN=Naim Mondes Impossibles Reader, OU=Android Book, O=Naim Book, C=FR'
+          echo "NAIM_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "NAIM_STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+          echo "NAIM_KEY_ALIAS=naimbook" >> "$GITHUB_ENV"
+          echo "NAIM_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        working-directory: naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android
+        run: gradle --no-daemon --stacktrace clean :app:assembleRelease
+
+      - name: Verify and package
+        run: |
+          set -euo pipefail
+          PROJECT="$GITHUB_WORKSPACE/naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android"
+          OUT="$GITHUB_WORKSPACE/naim-book-android/package-v15-textonly"
+          mkdir -p "$OUT"
+          APK="$OUT/Naim_et_les_Mondes_Impossibles_v1.5_SANS_IMAGES.apk"
+          cp "$PROJECT/app/build/outputs/apk/release/app-release.apk" "$APK"
+          cp "$GITHUB_WORKSPACE/naim-book-android/Naim_Mondes_Impossibles_Android_v1.5_TextOnly_Source.zip" "$OUT/"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK" > "$OUT/ZIPALIGN_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" > "$OUT/CERTIFICATE_REPORT.txt"
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' "$OUT/CERTIFICATE_REPORT.txt"
+          unzip -l "$APK" > "$OUT/APK_CONTENTS.txt"
+          ! grep -q 'assets/illustrations/' "$OUT/APK_CONTENTS.txt"
+          printf '%s\n' \
+            'Package: com.naim.mondesimpossibles.reader' \
+            'Version: 1.5.0' \
+            'Pages: 240' \
+            'Choice options: 180' \
+            'Illustrations: removed' \
+            'Search-and-find: removed' \
+            'Gauges: Courage / Peur / Curiosite / Gentillesse' \
+            'Narration: natural French TTS selection' \
+            'Auto-save: yes' \
+            'APK Signature Scheme v2: verified' \
+            'Minimum Android: 7.0' > "$OUT/BUILD_REPORT.txt"
+          (cd "$OUT" && sha256sum * > SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Naim-Mondes-Impossibles-v1.5-text-only
+          path: naim-book-android/package-v15-textonly/*
+          if-no-files-found: error
+          retention-days: 30

@@ -25,13 +25,11 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Rebuild book and remove all visuals/search games
+      - name: Rebuild natural-voice book and make it text-only
         run: |
           set -euo pipefail
           python3 .github/scripts/naim_clean_ui_v11.py
           python3 .github/scripts/naim_voice_v12.py
-          python3 .github/scripts/naim_illustration_v13.py
-          python3 .github/scripts/naim_bookgame_v14.py
           python3 .github/scripts/naim_textonly_v15.py
           PROJECT='naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android'
           unzip -t naim-book-android/Naim_Mondes_Impossibles_Android_v1.5_TextOnly_Source.zip
@@ -46,7 +44,7 @@ jobs:
           html=(p/'app/src/main/assets/index.html').read_text(encoding='utf-8')
           js=(p/'app/src/main/assets/app.js').read_text(encoding='utf-8')
           g=(p/'app/build.gradle').read_text(encoding='utf-8')
-          for token in ['pageArtImage','objectHotspot','searchMission','HIDDEN_OBJECTS','PAGE_ILLUSTRATIONS','Cherche dans les images']:
+          for token in ['pageArtImage','objectHotspot','searchMission','HIDDEN_OBJECTS','PAGE_ILLUSTRATIONS','Cherche dans les images','id="art"']:
               assert token not in html+js, token
           assert not (p/'app/src/main/assets/illustrations').exists()
           assert all(x in html+js for x in ['Courage','Peur','Curiosité','Gentillesse'])

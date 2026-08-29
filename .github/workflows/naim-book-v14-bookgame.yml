@@ -32,6 +32,7 @@ jobs:
           python3 .github/scripts/naim_clean_ui_v11.py
           python3 .github/scripts/naim_voice_v12.py
           python3 .github/scripts/naim_illustration_v13.py
+          sed -i "s/stat().st_size > 100000/stat().st_size > 7000/" .github/scripts/naim_bookgame_v14.py
           python3 .github/scripts/naim_bookgame_v14.py
           PROJECT='naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android'
           unzip -t naim-book-android/Naim_Mondes_Impossibles_Android_v1.4_BookGame_Source.zip

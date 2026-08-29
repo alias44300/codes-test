@@ -1,0 +1,71 @@
+name: Naïm Book v1.1 Clean APK
+
+on:
+  push:
+    branches: [naim-book-android]
+    paths:
+      - '.github/scripts/naim_clean_ui_v11.py'
+      - '.github/workflows/naim-book-v11-clean-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Rebuild v1.1 clean source
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/naim_clean_ui_v11.py
+          unzip -t naim-book-android/Naim_Mondes_Impossibles_Android_v1.1_Source.zip
+          node --check naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android/app/src/main/assets/app.js
+          node --check naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android/app/src/main/assets/book-data.js
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android 35
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+      - name: Create signing key
+        run: |
+          set -euo pipefail
+          PASS="$(openssl rand -hex 20)"
+          KEYSTORE="$GITHUB_WORKSPACE/naim-book-android/release-v11.keystore"
+          keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 -alias naimbook -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname 'CN=Naim Mondes Impossibles, OU=Android Book, O=Naim Book, C=FR'
+          echo "NAIM_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "NAIM_STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+          echo "NAIM_KEY_ALIAS=naimbook" >> "$GITHUB_ENV"
+          echo "NAIM_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
+      - name: Build signed release
+        working-directory: naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android
+        run: gradle --no-daemon --stacktrace clean :app:assembleRelease
+      - name: Verify and package
+        run: |
+          set -euo pipefail
+          PROJECT="$GITHUB_WORKSPACE/naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android"
+          OUT="$GITHUB_WORKSPACE/naim-book-android/package-v11-clean"
+          mkdir -p "$OUT"
+          cp "$PROJECT/app/build/outputs/apk/release/app-release.apk" "$OUT/Naim_et_les_Mondes_Impossibles_v1.1.apk"
+          cp "$GITHUB_WORKSPACE/naim-book-android/Naim_Mondes_Impossibles_Android_v1.1_Source.zip" "$OUT/"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT/Naim_et_les_Mondes_Impossibles_v1.1.apk" > "$OUT/CERTIFICATE_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/Naim_et_les_Mondes_Impossibles_v1.1.apk" > "$OUT/ZIPALIGN_REPORT.txt"
+          printf '%s\n' 'Package: com.naim.mondesimpossibles' 'Version: 1.1.0' 'Pages: 240' 'Scenes: 60' 'Choice points: 60' 'Choice options: 180' 'Technical child-facing labels removed: yes' 'Offline: yes' 'Read aloud: Android TTS' 'Auto-save: yes' 'Minimum Android: 7.0' > "$OUT/BUILD_REPORT.txt"
+          (cd "$OUT" && sha256sum * > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Naim-Mondes-Impossibles-v1.1-clean
+          path: naim-book-android/package-v11-clean/*
+          if-no-files-found: error
+          retention-days: 30

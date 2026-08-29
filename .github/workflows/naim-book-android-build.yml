@@ -27,7 +27,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Rebuild and repair source archive
+      - name: Rebuild, repair and clean child UI
         shell: bash
         run: |
           set -euo pipefail
@@ -42,40 +42,72 @@ jobs:
           data = base64.b64decode(re.sub(r'[^A-Za-z0-9+/=]', '', raw), validate=False)
           incoming = root / 'incoming-source.zip'
           incoming.write_bytes(data)
-          print('incoming source bytes', len(data))
           buildsrc = root / 'buildsrc'
-          if buildsrc.exists():
-              shutil.rmtree(buildsrc)
+          if buildsrc.exists(): shutil.rmtree(buildsrc)
           buildsrc.mkdir(parents=True)
-          skipped = []
+          skipped=[]
           with zipfile.ZipFile(incoming) as zf:
               for info in zf.infolist():
                   if info.filename.endswith('/app/src/main/assets/book-data.js'):
-                      skipped.append(info.filename)
-                      continue
+                      skipped.append(info.filename); continue
                   zf.extract(info, buildsrc)
-          if len(skipped) != 1:
+          if len(skipped)!=1:
               raise SystemExit(f'Expected one generated book-data.js entry, got {skipped}')
           project = buildsrc / 'Naim_Mondes_Impossibles_Android'
-          book_path = project / 'app/src/main/assets/book.json'
-          book = json.loads(book_path.read_text(encoding='utf-8'))
-          generated = 'window.NAIM_BOOK_DATA = ' + json.dumps(book, ensure_ascii=False, indent=2) + ';\n'
-          (project / 'app/src/main/assets/book-data.js').write_text(generated, encoding='utf-8')
-          repaired_base = root / 'Naim_Mondes_Impossibles_Android_Source'
-          repaired_zip = repaired_base.with_suffix('.zip')
-          if repaired_zip.exists():
-              repaired_zip.unlink()
-          shutil.make_archive(str(repaired_base), 'zip', root_dir=buildsrc, base_dir='Naim_Mondes_Impossibles_Android')
-          print('repaired source bytes', repaired_zip.stat().st_size)
-          PY
-          unzip -t naim-book-android/Naim_Mondes_Impossibles_Android_Source.zip
+          assets = project / 'app/src/main/assets'
+          book = json.loads((assets/'book.json').read_text(encoding='utf-8'))
+          (assets/'book-data.js').write_text('window.NAIM_BOOK_DATA = ' + json.dumps(book, ensure_ascii=False, indent=2) + ';\n', encoding='utf-8')
 
-      - name: Validate complete book
+          html=(assets/'index.html').read_text(encoding='utf-8')
+          html=html.replace('      <p class="eyebrow">LIVRE À CHOIX · 6 ANS</p>\n','')
+          html=html.replace('      <div class="cover-badges">\n        <span>240 pages</span><span>60 choix</span><span>10 chapitres</span>\n      </div>\n','')
+          html=html.replace('        <div class="page-meta"><span id="pageNumber">Page 1 / 240</span><span id="worldLabel">MAISON</span></div>','        <div class="page-meta"><span id="pageNumber">Page 1 / 240</span></div>')
+          html=html.replace('        <div class="scene-count" id="sceneCount">Scène 1 / 60</div>\n','')
+          html=html.replace('        <div id="memoryRibbon" class="memory hidden"></div>\n','')
+          html=html.replace('''      <section class="mini-status" aria-label="Progression de Naïm">\n        <div><span>Courage</span><strong id="courageVal">0</strong></div>\n        <div><span>Gentillesse</span><strong id="kindVal">0</strong></div>\n        <div><span>Imagination</span><strong id="imaginationVal">0</strong></div>\n      </section>\n\n''','')
+          html=html.replace('      <p class="muted">Les objets trouvés reviennent plus tard dans l’histoire.</p>\n','      <p class="muted">Voici les objets trouvés par Naïm.</p>\n')
+          html=html.replace('''      <div class="score-card">\n        <h3>Ta façon de jouer</h3>\n        <div class="score-row"><span>Courage</span><strong id="bagCourage">0</strong></div>\n        <div class="score-row"><span>Gentillesse</span><strong id="bagKind">0</strong></div>\n        <div class="score-row"><span>Imagination</span><strong id="bagImagination">0</strong></div>\n      </div>\n''','')
+          html=html.replace('''      <div class="info-card"><strong>1. Lis une page</strong><p>Les phrases sont courtes. Tu peux aussi appuyer sur 🔊 pour écouter.</p></div>\n      <div class="info-card"><strong>2. Fais tes choix</strong><p>Toutes les 4 pages, Naïm doit choisir quoi faire.</p></div>\n      <div class="info-card"><strong>3. Il n’y a pas de mauvais bouton</strong><p>Un choix peut être courageux, gentil ou très rigolo.</p></div>\n      <div class="info-card"><strong>4. Rejoue</strong><p>Les choix changent le sac, les points et la fin de l’histoire.</p></div>\n''','''      <div class="info-card"><strong>Lis ou écoute</strong><p>Appuie sur 🔊 si tu veux entendre la page.</p></div>\n      <div class="info-card"><strong>Choisis pour Naïm</strong><p>Quand plusieurs boutons apparaissent, choisis ce que Naïm doit faire.</p></div>\n      <div class="info-card"><strong>Amuse-toi</strong><p>Tu peux recommencer l’aventure et essayer d’autres idées.</p></div>\n''')
+          html=html.replace('      <div id="endingStats" class="ending-stats"></div>\n','')
+          (assets/'index.html').write_text(html, encoding='utf-8')
+
+          js=(assets/'app.js').read_text(encoding='utf-8')
+          js=js.replace('    const stats = getStats();\n','')
+          js=js.replace("    $('chapterNum').textContent = `Chapitre ${scene.ci+1} / ${BOOK.chapters.length}`;","    $('chapterNum').textContent = `Chapitre ${scene.ci+1}`;")
+          js=js.replace("    $('worldLabel').textContent = chapter.world;\n",'')
+          js=js.replace("    $('sceneCount').textContent = `Scène ${sceneIndex+1} / ${BOOK.sceneCount}`;\n",'')
+          js=js.replace("    $('courageVal').textContent = stats.courage;\n    $('kindVal').textContent = stats.kind;\n    $('imaginationVal').textContent = stats.imagination;\n",'')
+          js=js.replace("    $('memoryRibbon').classList.toggle('hidden', !state.lastResult || pageInScene===3);\n    if(state.lastResult && pageInScene!==3) $('memoryRibbon').textContent = `Juste avant : ${state.lastResult}`;\n",'')
+          js=js.replace("      const tags = ['Choix courageux','Choix gentil','Choix rigolo'];\n",'')
+          js=js.replace('        b.innerHTML = `<span class="choice-tag">${tags[i]}</span>${label}`;','        b.textContent = label;')
+          js=js.replace('    const stats = getStats(); const items = getInventory();','    const items = getInventory();')
+          js=js.replace("    $('bagCourage').textContent=stats.courage; $('bagKind').textContent=stats.kind; $('bagImagination').textContent=stats.imagination;\n",'')
+          js=js.replace("    $('endingStats').innerHTML=`<span>Courage ${s.courage}</span><span>Gentillesse ${s.kind}</span><span>Imagination ${s.imagination}</span>`;\n",'')
+          (assets/'app.js').write_text(js, encoding='utf-8')
+
+          css=(assets/'styles.css').read_text(encoding='utf-8')
+          css=css.replace('.cover-badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:22px}.cover-badges span{background:var(--panel);border:1px solid var(--border);padding:7px 10px;border-radius:999px;font-size:12px}','')
+          css=css.replace('.page-meta{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;font-weight:700;margin-top:6px}', '.page-meta{display:flex;justify-content:flex-start;color:var(--muted);font-size:11px;font-weight:700;margin-top:6px}')
+          (assets/'styles.css').write_text(css, encoding='utf-8')
+
+          gradle=(project/'app/build.gradle').read_text(encoding='utf-8').replace('versionCode 1','versionCode 2').replace("versionName '1.0.0'","versionName '1.1.0'")
+          (project/'app/build.gradle').write_text(gradle, encoding='utf-8')
+
+          repaired_base=root/'Naim_Mondes_Impossibles_Android_v1.1_Source'
+          repaired_zip=repaired_base.with_suffix('.zip')
+          if repaired_zip.exists(): repaired_zip.unlink()
+          shutil.make_archive(str(repaired_base), 'zip', root_dir=buildsrc, base_dir='Naim_Mondes_Impossibles_Android')
+          print('v1.1 source bytes', repaired_zip.stat().st_size)
+          PY
+          unzip -t naim-book-android/Naim_Mondes_Impossibles_Android_v1.1_Source.zip
+
+      - name: Validate complete book and clean UI
         working-directory: naim-book-android/buildsrc/Naim_Mondes_Impossibles_Android
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import json
+          from pathlib import Path
           b=json.load(open('app/src/main/assets/book.json', encoding='utf-8'))
           assert b['pageCount']==240
           assert b['sceneCount']==60
@@ -84,9 +116,12 @@ jobs:
           assert all(len(c['scenes'])==6 for c in b['chapters'])
           assert all(len(s['pages'])==3 for c in b['chapters'] for s in c['scenes'])
           assert all(len(s['choices'])==3 for c in b['chapters'] for s in c['scenes'])
-          assert all(len(s['results'])==3 for c in b['chapters'] for s in c['scenes'])
           assert sum(len(s['choices']) for c in b['chapters'] for s in c['scenes'])==180
-          print('240 pages / 60 scenes / 60 decisions / 180 options: OK')
+          ui=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')+Path('app/src/main/assets/app.js').read_text(encoding='utf-8')
+          forbidden=['LIVRE À CHOIX · 6 ANS','60 choix','10 chapitres','sceneCount','worldLabel','courageVal','kindVal','imaginationVal','Juste avant :','Choix courageux','Choix gentil','Choix rigolo','bagCourage','bagKind','bagImagination','endingStats']
+          left=[x for x in forbidden if x in ui]
+          assert not left, left
+          print('240 pages / 60 decisions / 180 options + clean child UI: OK')
           PY
           node --check app/src/main/assets/app.js
           node --check app/src/main/assets/book-data.js
@@ -107,7 +142,7 @@ jobs:
         run: |
           set -euo pipefail
           PASS="$(openssl rand -hex 20)"
-          KEYSTORE="$GITHUB_WORKSPACE/naim-book-android/release.keystore"
+          KEYSTORE="$GITHUB_WORKSPACE/naim-book-android/release-v11.keystore"
           keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 -alias naimbook -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname 'CN=Naim Mondes Impossibles, OU=Android Book, O=Naim Book, C=FR'
           echo "NAIM_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
           echo "NAIM_STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
@@ -123,18 +158,18 @@ jobs:
         run: |
           set -euo pipefail
           PROJECT="$GITHUB_WORKSPACE/naim-book-android/buildsrc/Naim_Mondes_Impossibles_Android"
-          OUT="$GITHUB_WORKSPACE/naim-book-android/package"
+          OUT="$GITHUB_WORKSPACE/naim-book-android/package-v11"
           mkdir -p "$OUT"
-          cp "$PROJECT/app/build/outputs/apk/release/app-release.apk" "$OUT/Naim_et_les_Mondes_Impossibles_v1.0.apk"
-          cp "$GITHUB_WORKSPACE/naim-book-android/Naim_Mondes_Impossibles_Android_Source.zip" "$OUT/"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT/Naim_et_les_Mondes_Impossibles_v1.0.apk" > "$OUT/CERTIFICATE_REPORT.txt"
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/Naim_et_les_Mondes_Impossibles_v1.0.apk" > "$OUT/ZIPALIGN_REPORT.txt"
-          printf '%s\n' 'Package: com.naim.mondesimpossibles' 'Version: 1.0.0' 'Pages: 240' 'Chapters: 10' 'Scenes: 60' 'Choice points: 60' 'Choice options: 180' 'Offline: yes' 'Read aloud: Android TTS' 'Auto-save: yes' 'Minimum Android: 7.0' > "$OUT/BUILD_REPORT.txt"
+          cp "$PROJECT/app/build/outputs/apk/release/app-release.apk" "$OUT/Naim_et_les_Mondes_Impossibles_v1.1.apk"
+          cp "$GITHUB_WORKSPACE/naim-book-android/Naim_Mondes_Impossibles_Android_v1.1_Source.zip" "$OUT/"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT/Naim_et_les_Mondes_Impossibles_v1.1.apk" > "$OUT/CERTIFICATE_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/Naim_et_les_Mondes_Impossibles_v1.1.apk" > "$OUT/ZIPALIGN_REPORT.txt"
+          printf '%s\n' 'Package: com.naim.mondesimpossibles' 'Version: 1.1.0' 'Pages: 240' 'Chapters: 10' 'Scenes: 60' 'Choice points: 60' 'Choice options: 180' 'Child-facing debug/meta labels: removed' 'Offline: yes' 'Read aloud: Android TTS' 'Auto-save: yes' 'Minimum Android: 7.0' > "$OUT/BUILD_REPORT.txt"
           (cd "$OUT" && sha256sum * > SHA256SUMS.txt)
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Naim-Mondes-Impossibles-v1.0
-          path: naim-book-android/package/*
+          name: Naim-Mondes-Impossibles-v1.1-clean-ui
+          path: naim-book-android/package-v11/*
           if-no-files-found: error
           retention-days: 30

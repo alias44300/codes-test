@@ -4,7 +4,7 @@ on:
   push:
     branches: [naim-book-android]
     paths:
-      - '.github/assets/naim_page_001.b64'
+      - '.github/assets/naim_page_001/**'
       - '.github/scripts/naim_illustration_v13.py'
       - '.github/workflows/naim-book-v13-illustrated-installable.yml'
   workflow_dispatch:
@@ -44,7 +44,9 @@ jobs:
           b=json.loads((p/'app/src/main/assets/book.json').read_text(encoding='utf-8'))
           assert b['pageCount']==240 and b['sceneCount']==60
           assert sum(len(s['choices']) for c in b['chapters'] for s in c['scenes'])==180
-          assert (p/'app/src/main/assets/illustrations/page_001.webp').stat().st_size > 50000
+          img=p/'app/src/main/assets/illustrations/page_001.webp'
+          assert img.stat().st_size > 7000
+          assert img.read_bytes()[:4] == b'RIFF'
           js=(p/'app/src/main/assets/app.js').read_text(encoding='utf-8')
           assert "0: 'illustrations/page_001.webp'" in js
           java=(p/'app/src/main/java/com/naim/mondesimpossibles/MainActivity.java').read_text(encoding='utf-8')

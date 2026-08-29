@@ -1,0 +1,106 @@
+name: Naïm Book Android APK
+
+on:
+  push:
+    branches: [naim-book-android]
+    paths:
+      - 'naim-book-android/**'
+      - '.github/workflows/naim-book-android-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Rebuild source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, re
+          chunks=sorted(Path('naim-book-android/source_zip').glob('chunk_*.b64'))
+          if not chunks:
+              raise SystemExit('No source chunks found')
+          raw=''.join(p.read_text(encoding='utf-8') for p in chunks)
+          data=base64.b64decode(re.sub(r'[^A-Za-z0-9+/=]','',raw), validate=False)
+          out=Path('naim-book-android/Naim_Mondes_Impossibles_Android_Source.zip')
+          out.write_bytes(data)
+          print('source bytes',len(data))
+          PY
+          unzip -t naim-book-android/Naim_Mondes_Impossibles_Android_Source.zip
+          mkdir -p naim-book-android/buildsrc
+          unzip -q naim-book-android/Naim_Mondes_Impossibles_Android_Source.zip -d naim-book-android/buildsrc
+
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Validate book
+        working-directory: naim-book-android/buildsrc/Naim_Mondes_Impossibles_Android
+        run: |
+          python3 - <<'PY'
+          import json
+          b=json.load(open('app/src/main/assets/book.json', encoding='utf-8'))
+          assert b['pageCount']==240
+          assert b['sceneCount']==60
+          assert len(b['chapters'])==10
+          assert sum(len(c['scenes']) for c in b['chapters'])==60
+          assert sum(len(s['choices']) for c in b['chapters'] for s in c['scenes'])==180
+          print('240 pages / 60 scenes / 180 options: OK')
+          PY
+          node --check app/src/main/assets/app.js
+
+      - name: Create release signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          PASS="$(openssl rand -hex 20)"
+          KEYSTORE="$GITHUB_WORKSPACE/naim-book-android/release.keystore"
+          keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 -alias naimbook -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname 'CN=Naim Mondes Impossibles, OU=Android Book, O=Naim Book, C=FR'
+          echo "NAIM_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "NAIM_STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+          echo "NAIM_KEY_ALIAS=naimbook" >> "$GITHUB_ENV"
+          echo "NAIM_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        working-directory: naim-book-android/buildsrc/Naim_Mondes_Impossibles_Android
+        run: gradle --no-daemon --stacktrace clean :app:assembleRelease
+
+      - name: Verify and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT="$GITHUB_WORKSPACE/naim-book-android/buildsrc/Naim_Mondes_Impossibles_Android"
+          OUT="$GITHUB_WORKSPACE/naim-book-android/package"
+          mkdir -p "$OUT"
+          cp "$PROJECT/app/build/outputs/apk/release/app-release.apk" "$OUT/Naim_et_les_Mondes_Impossibles_v1.0.apk"
+          cp "$GITHUB_WORKSPACE/naim-book-android/Naim_Mondes_Impossibles_Android_Source.zip" "$OUT/"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT/Naim_et_les_Mondes_Impossibles_v1.0.apk" > "$OUT/CERTIFICATE_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$OUT/Naim_et_les_Mondes_Impossibles_v1.0.apk" > "$OUT/ZIPALIGN_REPORT.txt"
+          printf '%s\n' 'Package: com.naim.mondesimpossibles' 'Version: 1.0.0' 'Pages: 240' 'Scenes: 60' 'Choice points: 60' 'Choice options: 180' 'Offline: yes' 'Read aloud: Android TTS' 'Minimum Android: 7.0' > "$OUT/BUILD_REPORT.txt"
+          (cd "$OUT" && sha256sum * > SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Naim-Mondes-Impossibles-v1.0
+          path: naim-book-android/package/*
+          if-no-files-found: error
+          retention-days: 30

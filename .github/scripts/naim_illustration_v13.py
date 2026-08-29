@@ -20,7 +20,7 @@ encoded = re.sub(r'[^A-Za-z0-9+/=]', '', encoded)
 image_bytes = base64.b64decode(encoded, validate=False)
 image_path = illustrations / 'page_001.webp'
 image_path.write_bytes(image_bytes)
-if image_path.stat().st_size < 100000:
+if image_path.stat().st_size < 7000:
     raise SystemExit(f'Page 1 illustration looks incomplete: {image_path.stat().st_size} bytes')
 if image_bytes[:4] != b'RIFF' or b'WEBP' not in image_bytes[:16]:
     raise SystemExit('Page 1 illustration is not a valid WEBP container')

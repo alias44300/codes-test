@@ -34,26 +34,19 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import base64, json, re, shutil, zipfile
-
           root = Path('naim-book-android')
           chunks = sorted((root / 'source_zip').glob('chunk_*.b64'))
           if not chunks:
               raise SystemExit('No source chunks found')
-
           raw = ''.join(p.read_text(encoding='utf-8') for p in chunks)
           data = base64.b64decode(re.sub(r'[^A-Za-z0-9+/=]', '', raw), validate=False)
           incoming = root / 'incoming-source.zip'
           incoming.write_bytes(data)
           print('incoming source bytes', len(data))
-
           buildsrc = root / 'buildsrc'
           if buildsrc.exists():
               shutil.rmtree(buildsrc)
           buildsrc.mkdir(parents=True)
-
-          # One generated file was damaged during base64 transport. Extract every
-          # canonical source file except that generated copy, then recreate it
-          # directly from the intact book.json.
           skipped = []
           with zipfile.ZipFile(incoming) as zf:
               for info in zf.infolist():
@@ -63,13 +56,11 @@ jobs:
                   zf.extract(info, buildsrc)
           if len(skipped) != 1:
               raise SystemExit(f'Expected one generated book-data.js entry, got {skipped}')
-
           project = buildsrc / 'Naim_Mondes_Impossibles_Android'
           book_path = project / 'app/src/main/assets/book.json'
           book = json.loads(book_path.read_text(encoding='utf-8'))
           generated = 'window.NAIM_BOOK_DATA = ' + json.dumps(book, ensure_ascii=False, indent=2) + ';\n'
           (project / 'app/src/main/assets/book-data.js').write_text(generated, encoding='utf-8')
-
           repaired_base = root / 'Naim_Mondes_Impossibles_Android_Source'
           repaired_zip = repaired_base.with_suffix('.zip')
           if repaired_zip.exists():
@@ -100,11 +91,16 @@ jobs:
           node --check app/src/main/assets/app.js
           node --check app/src/main/assets/book-data.js
 
-      - name: Install Android SDK 35
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform 35
         shell: bash
         run: |
+          set -euo pipefail
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
 
       - name: Create release signing key
         shell: bash

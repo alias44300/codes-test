@@ -1,5 +1,5 @@
 from pathlib import Path
-import base64, shutil
+import base64, shutil, re
 
 root = Path('naim-book-android')
 project = root / 'buildsrc-v11' / 'Naim_Mondes_Impossibles_Android'
@@ -10,13 +10,20 @@ assets = project / 'app/src/main/assets'
 illustrations = assets / 'illustrations'
 illustrations.mkdir(parents=True, exist_ok=True)
 
-# Page 1 illustration
-encoded = Path('.github/assets/naim_page_001.b64').read_text(encoding='utf-8').strip()
-image_bytes = base64.b64decode(encoded)
+# Page 1 illustration, reconstructed from repository chunks.
+chunk_dir = Path('.github/assets/naim_page_001')
+chunks = sorted(chunk_dir.glob('chunk_*.b64'))
+if not chunks:
+    raise SystemExit('No page 1 illustration chunks found')
+encoded = ''.join(p.read_text(encoding='utf-8') for p in chunks)
+encoded = re.sub(r'[^A-Za-z0-9+/=]', '', encoded)
+image_bytes = base64.b64decode(encoded, validate=False)
 image_path = illustrations / 'page_001.webp'
 image_path.write_bytes(image_bytes)
-if image_path.stat().st_size < 50000:
-    raise SystemExit('Page 1 illustration looks incomplete')
+if image_path.stat().st_size < 100000:
+    raise SystemExit(f'Page 1 illustration looks incomplete: {image_path.stat().st_size} bytes')
+if image_bytes[:4] != b'RIFF' or b'WEBP' not in image_bytes[:16]:
+    raise SystemExit('Page 1 illustration is not a valid WEBP container')
 
 # Add a real illustration surface to the reader.
 index = assets / 'index.html'
@@ -63,7 +70,7 @@ if '.page-art-image{' not in css:
 """
 css_path.write_text(css, encoding='utf-8')
 
-# New package ID avoids the lost temporary v1.2 signing key, so Android can install this build alongside v1.2.
+# New package ID avoids signing conflicts with previous temporary builds.
 gradle = project / 'app/build.gradle'
 g = gradle.read_text(encoding='utf-8')
 g = g.replace("applicationId 'com.naim.mondesimpossibles'", "applicationId 'com.naim.mondesimpossibles.illustrated'")

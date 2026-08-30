@@ -1,0 +1,136 @@
+name: Naïm et les Animaux Fantastiques v1.0 APK
+
+on:
+  push:
+    branches: [naim-book-android]
+    paths:
+      - '.github/scripts/naim_animaux_v20.py'
+      - '.github/workflows/naim-animaux-fantastiques-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build the complete 240-page second book source
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/naim_clean_ui_v11.py
+          python3 .github/scripts/naim_voice_v12.py
+          python3 .github/scripts/naim_textonly_v15.py
+          python3 .github/scripts/naim_scoring_v16.py
+          python3 .github/scripts/naim_animaux_v20.py
+          PROJECT='naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android'
+          unzip -t naim-book-android/Naim_Animaux_Fantastiques_Android_v1.0_Source.zip
+          node --check "$PROJECT/app/src/main/assets/app.js"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          p=Path('naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android')
+          book=json.loads((p/'app/src/main/assets/book.json').read_text(encoding='utf-8'))
+          scoring=json.loads((p/'app/src/main/assets/scoring-animaux-v1.json').read_text(encoding='utf-8'))
+          js=(p/'app/src/main/assets/app.js').read_text(encoding='utf-8')
+          html=(p/'app/src/main/assets/index.html').read_text(encoding='utf-8')
+          g=(p/'app/build.gradle').read_text(encoding='utf-8')
+          strings=(p/'app/src/main/res/values/strings.xml').read_text(encoding='utf-8')
+          flat=[s for c in book['chapters'] for s in c['scenes']]
+          assert book['title']=='Naïm et les Animaux Fantastiques'
+          assert book['subtitle']=='Le Grand Bestiaire'
+          assert book['pageCount']==240 and book['sceneCount']==60 and book['choiceCount']==180
+          assert len(book['chapters'])==10 and all(len(c['scenes'])==6 for c in book['chapters'])
+          assert len(flat)==60 and sum(len(s['pages']) for s in flat)==180 and sum(len(s['choices']) for s in flat)==180
+          assert len(scoring)==180 and all(set(x['scores'])=={'courage','fear','curiosity','kindness'} for x in scoring)
+          assert all(any(v>0 for v in x['scores'].values()) for x in scoring)
+          assert 'SCORE_MAP' in js and 'getChoiceScore' in js and 'showScoreToast' in js
+          assert 'choiceIndex===0' not in js and 'label = (scene.choices' not in js
+          assert 'naim_animaux_fantastiques_save_v1' in js
+          assert 'Orphéo' in json.dumps(book,ensure_ascii=False) and 'Méli-Mélo' in json.dumps(book,ensure_ascii=False)
+          assert 'Naïm et les Animaux Fantastiques' in html and 'Le Grand Bestiaire' in html and 'Mondes Impossibles' not in html
+          assert 'Naïm et les Animaux Fantastiques' in strings
+          assert not (p/'app/src/main/assets/illustrations').exists()
+          for token in ['objectHotspot','searchMission','HIDDEN_OBJECTS','PAGE_ILLUSTRATIONS','Cherche dans les images']:
+              assert token not in html+js
+          assert "applicationId 'com.naim.animauxfantastiques'" in g
+          assert "versionName '1.0.0'" in g
+          print('AUDIT OK: Animaux Fantastiques / 240 pages / 60 scenes / 180 choices / 180 explicit scores / no images / no search-and-find')
+          PY
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android 35
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Create signing key
+        run: |
+          set -euo pipefail
+          PASS="$(openssl rand -hex 20)"
+          KEYSTORE="$GITHUB_WORKSPACE/naim-book-android/animaux-v1.keystore"
+          keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 -alias naimanimals -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname 'CN=Naim Animaux Fantastiques, OU=Android Book, O=Naim Book, C=FR'
+          echo "NAIM_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "NAIM_STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+          echo "NAIM_KEY_ALIAS=naimanimals" >> "$GITHUB_ENV"
+          echo "NAIM_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        working-directory: naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android
+        run: gradle --no-daemon --stacktrace clean :app:assembleRelease
+
+      - name: Verify and package
+        run: |
+          set -euo pipefail
+          PROJECT="$GITHUB_WORKSPACE/naim-book-android/buildsrc-v11/Naim_Mondes_Impossibles_Android"
+          OUT="$GITHUB_WORKSPACE/naim-book-android/package-animaux-v1"
+          mkdir -p "$OUT"
+          APK="$OUT/Naim_et_les_Animaux_Fantastiques_v1.0.apk"
+          cp "$PROJECT/app/build/outputs/apk/release/app-release.apk" "$APK"
+          cp "$GITHUB_WORKSPACE/naim-book-android/Naim_Animaux_Fantastiques_Android_v1.0_Source.zip" "$OUT/"
+          cp "$PROJECT/app/src/main/assets/scoring-animaux-v1.json" "$OUT/SCORING_180_CHOIX_ANIMAUX.json"
+          cp "$PROJECT/app/src/main/assets/book.json" "$OUT/LIVRE_COMPLET_240_PAGES.json"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK" > "$OUT/ZIPALIGN_REPORT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" > "$OUT/CERTIFICATE_REPORT.txt"
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' "$OUT/CERTIFICATE_REPORT.txt"
+          unzip -l "$APK" > "$OUT/APK_CONTENTS.txt"
+          ! grep -q 'assets/illustrations/' "$OUT/APK_CONTENTS.txt"
+          printf '%s\n' \
+            'Title: Naim et les Animaux Fantastiques' \
+            'Subtitle: Le Grand Bestiaire' \
+            'Package: com.naim.animauxfantastiques' \
+            'Version: 1.0.0' \
+            'Pages: 240' \
+            'Chapters: 10' \
+            'Scenes: 60' \
+            'Choice options: 180' \
+            'Explicit scored choices: 180/180' \
+            'Traits: Courage / Peur / Curiosite / Gentillesse' \
+            'Score feedback after each choice: yes' \
+            'Ending profile uses explicit scores: yes' \
+            'Illustrations: none' \
+            'Search-and-find: none' \
+            'Narration: natural French TTS selection' \
+            'Auto-save: yes' \
+            'APK Signature Scheme v2: verified' \
+            'Minimum Android: 7.0' > "$OUT/BUILD_REPORT.txt"
+          (cd "$OUT" && sha256sum * > SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Naim-Animaux-Fantastiques-v1.0
+          path: naim-book-android/package-animaux-v1/*
+          if-no-files-found: error
+          retention-days: 30

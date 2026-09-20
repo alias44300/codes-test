@@ -1,0 +1,18 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'fr.alexandre.marge'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'fr.alexandre.marge'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+    buildTypes {
+        release { minifyEnabled false }
+    }
+}
+
+dependencies {}

@@ -18,10 +18,21 @@ public class ItemLedgerTest {
         assertEquals(55000,t.purchases); assertEquals(5448,t.fees);
         assertEquals(42000,t.revenue); assertEquals(8552,t.profit);
         assertEquals(27000,t.stockCost); assertEquals(32000,t.stockEstimate);
-        assertEquals(1,t.stock); assertEquals(1,t.sold);
+        assertEquals(27000,t.stockEstimatedCost); assertEquals(5000,t.stockPotentialProfit);
+        assertEquals(74000,t.possibleCash); assertEquals(13552,t.possibleProfit);
+        assertEquals(1,t.stock); assertEquals(1,t.sold); assertEquals(1,t.estimatedStock);
         assertEquals(0,stock.profit()); assertEquals(5000,stock.potentialProfit());
         assertEquals(20.3619047619,t.margin,0.000001);
         assertEquals(25.568045921,t.roi,0.000001);
+    }
+    @Test public void unpricedStockDoesNotReducePotentialProfit() {
+        Item priced=article("Avec estimation",10000); priced.shipping=1000; priced.estimate=18000;
+        Item unpriced=article("Sans estimation",25000); unpriced.shipping=2000;
+        Ledger.Totals t=Ledger.summarize(Arrays.asList(priced,unpriced));
+        assertEquals(1,t.estimatedStock); assertEquals(18000,t.stockEstimate);
+        assertEquals(11000,t.stockEstimatedCost); assertEquals(7000,t.stockPotentialProfit);
+        assertEquals(18000,t.possibleCash); assertEquals(7000,t.possibleProfit);
+        assertEquals(38000,t.stockCost);
     }
     @Test public void noSalesAndGiftsNeverDivideByZero() {
         Ledger.Totals empty=Ledger.summarize(Collections.emptyList());

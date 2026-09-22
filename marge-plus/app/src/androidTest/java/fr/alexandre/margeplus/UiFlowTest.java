@@ -67,6 +67,17 @@ public class UiFlowTest {
     }
     private TextView findText(View v,String text){if(v instanceof TextView&&text.contentEquals(((TextView)v).getText()))return (TextView)v;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int n=0;n<g.getChildCount();n++){TextView found=findText(g.getChildAt(n),text);if(found!=null)return found;}}return null;}
 
+    @Test public void homePreviewsSummedPossibleMoney() throws Exception {
+        scenario.close();
+        Item first=new Item();first.name="Gants";first.purchase=2500;first.shipping=500;first.estimate=5000;first.purchaseDate="2026-09-20";
+        Item second=new Item();second.name="Casque";second.purchase=1000;second.estimate=4000;second.purchaseDate="2026-09-21";
+        Item sold=new Item();sold.name="Vendu";sold.purchase=2000;sold.sold=true;sold.sale=3500;sold.purchaseDate="2026-09-18";sold.saleDate="2026-09-19";
+        new LedgerStore(context).save(Arrays.asList(first,second,sold));
+        scenario=ActivityScenario.launch(MainActivity.class);instrumentation.waitForIdleSync();
+        scenario.onActivity(a->{TextView money=(TextView)find(a,"home_possible_money");TextView hint=(TextView)find(a,"home_possible_hint");assertNotNull(money);assertNotNull(hint);assertEquals(Money.format(9000),money.getText().toString());assertTrue(hint.getText().toString().contains(Money.format(5000)));});
+        screenshot("05-argent-possible");
+    }
+
     @Test public void statusBarsDoNotOverlapHeaderAndNavigation() {
         instrumentation.waitForIdleSync();scenario.onActivity(a->{View root=find(a,"app_root"),header=find(a,"page_header"),navigation=find(a,"bottom_navigation");assertNotNull(root);WindowInsets insets=root.getRootWindowInsets();assertNotNull(insets);android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());int[] location=new int[2];header.getLocationOnScreen(location);assertTrue("Header overlaps status bar",location[1]>=bars.top);navigation.getLocationOnScreen(location);assertTrue("Navigation overlaps system buttons",location[1]+navigation.getHeight()<=root.getHeight()-bars.bottom);});
     }

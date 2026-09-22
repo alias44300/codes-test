@@ -22,6 +22,12 @@ public final class Item {
     public long cost() { return purchase + fees(); }
     public long profit() { return sold ? sale - cost() : 0; }
     public long potentialProfit() { return estimate - cost(); }
+    public long breakEvenSale() { return cost(); }
+    public long saleForRoi(int percent) {
+        if (percent < 0 || percent > 1000) throw new IllegalArgumentException("Objectif de rentabilité invalide.");
+        long factor = 100L + percent;
+        return (cost() * factor + 99L) / 100L;
+    }
 
     public Item copy() {
         Item n = new Item();

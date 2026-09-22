@@ -78,6 +78,20 @@ public class UiFlowTest {
         screenshot("05-argent-possible");
     }
 
+    @Test public void decisionCenterDormantFilterAndBreakEvenAreVisible() throws Exception {
+        scenario.close();LocalDate today=LocalDate.now();
+        Item old=new Item();old.name="Ancien stock";old.purchase=2500;old.shipping=500;old.purchaseDate=today.minusDays(70).toString();
+        Item fresh=new Item();fresh.name="Stock récent";fresh.purchase=1000;fresh.estimate=1600;fresh.purchaseDate=today.minusDays(3).toString();
+        new LedgerStore(context).save(Arrays.asList(old,fresh));scenario=ActivityScenario.launch(MainActivity.class);instrumentation.waitForIdleSync();
+        scenario.onActivity(a->{assertNotNull(find(a,"decision_center"));assertNotNull(find(a,"decision_stock"));});screenshot("06-centre-decision");
+        click("decision_stock");scenario.onActivity(a->{assertNotNull(find(a,"filter_dormant"));assertNotNull(find(a,"item_"+old.id));assertNull(find(a,"item_"+fresh.id));});
+        click("item_"+old.id);scenario.onActivity(a->{TextView price=(TextView)find(a,"detail_break_even");TextView age=(TextView)find(a,"detail_stock_age");assertNotNull(price);assertNotNull(age);assertEquals(Money.format(3000),price.getText().toString());assertTrue(age.getText().toString().contains("70"));});screenshot("07-prix-minimum");
+    }
+
+    @Test public void monthlyStatsShowCurrentMonthProfit() throws Exception {
+        scenario.close();LocalDate today=LocalDate.now();Item sold=new Item();sold.name="Vente du mois";sold.purchase=2000;sold.sold=true;sold.sale=3500;sold.purchaseDate=today.minusDays(5).toString();sold.saleDate=today.toString();new LedgerStore(context).save(Collections.singletonList(sold));scenario=ActivityScenario.launch(MainActivity.class);click("nav_bilan");scenario.onActivity(a->{TextView profit=(TextView)find(a,"bilan_month_profit");assertNotNull(profit);assertEquals(Money.format(1500),profit.getText().toString());assertNotNull(find(a,"monthly_stats"));});screenshot("08-stats-mensuelles");
+    }
+
     @Test public void statusBarsDoNotOverlapHeaderAndNavigation() {
         instrumentation.waitForIdleSync();scenario.onActivity(a->{View root=find(a,"app_root"),header=find(a,"page_header"),navigation=find(a,"bottom_navigation");assertNotNull(root);WindowInsets insets=root.getRootWindowInsets();assertNotNull(insets);android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());int[] location=new int[2];header.getLocationOnScreen(location);assertTrue("Header overlaps status bar",location[1]>=bars.top);navigation.getLocationOnScreen(location);assertTrue("Navigation overlaps system buttons",location[1]+navigation.getHeight()<=root.getHeight()-bars.bottom);});
     }

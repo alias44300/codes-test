@@ -3,6 +3,8 @@ package fr.alexandre.margeplus;
 import org.json.JSONObject;
 import org.junit.Test;
 import java.util.Arrays;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Collections;
 import static org.junit.Assert.*;
 
@@ -33,6 +35,22 @@ public class ItemLedgerTest {
         assertEquals(11000,t.stockEstimatedCost); assertEquals(7000,t.stockPotentialProfit);
         assertEquals(18000,t.possibleCash); assertEquals(7000,t.possibleProfit);
         assertEquals(38000,t.stockCost);
+    }
+    @Test public void profitabilityTargetsIncludeEveryFee() {
+        Item i=article("Gants",2500);i.shipping=320;i.buyer=180;i.repair=500;
+        assertEquals(3500,i.breakEvenSale());
+        assertEquals(3850,i.saleForRoi(10));assertEquals(4200,i.saleForRoi(20));assertEquals(4550,i.saleForRoi(30));
+    }
+    @Test public void monthlyAndDecisionMetricsAreDeterministic() {
+        LocalDate today=LocalDate.now();YearMonth month=YearMonth.from(today);
+        Item dormant=article("Dormant",10000);dormant.purchaseDate=today.minusDays(75).toString();
+        Item risk=article("Risque",5000);risk.purchaseDate=today.minusDays(5).toString();risk.estimate=4000;
+        Item sold=article("Vendu",6000);sold.sold=true;sold.sale=9000;sold.saleDate=today.toString();sold.purchaseDate=today.minusDays(10).toString();
+        Ledger.Totals all=Ledger.summarize(Arrays.asList(dormant,risk,sold));
+        assertEquals(1,all.dormantStock);assertEquals(1,all.missingEstimate);assertEquals(1,all.lossRisk);
+        Ledger.MonthTotals m=Ledger.summarizeMonth(Arrays.asList(dormant,risk,sold),month);
+        assertEquals(1,m.sold);assertEquals(9000,m.revenue);assertEquals(6000,m.cost);assertEquals(3000,m.profit);assertEquals(3000,m.averageProfit);
+        assertTrue(Ledger.dormant(dormant,today));assertEquals(75,Ledger.stockAgeDays(dormant,today));
     }
     @Test public void noSalesAndGiftsNeverDivideByZero() {
         Ledger.Totals empty=Ledger.summarize(Collections.emptyList());

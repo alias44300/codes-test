@@ -32,13 +32,13 @@ jobs:
       - name: Package installable APK, unsigned release and signing tool
         run: |
           mkdir -p delivery
-          cp app/build/outputs/apk/debug/app-debug.apk delivery/Marge-Plus-2.1.0.apk
-          cp app/build/outputs/apk/release/app-release-unsigned.apk delivery/Marge-Plus-2.1.0-unsigned.apk
+          cp app/build/outputs/apk/debug/app-debug.apk delivery/Marge-Plus-2.2.0.apk
+          cp app/build/outputs/apk/release/app-release-unsigned.apk delivery/Marge-Plus-2.2.0-unsigned.apk
           signing_tool=$(find "$ANDROID_HOME/build-tools" -path '*/lib/apksigner.jar' | sort -V | tail -1)
           cp "$signing_tool" delivery/apksigner.jar
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose delivery/Marge-Plus-2.1.0.apk > delivery/apksigner-installable.txt
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging delivery/Marge-Plus-2.1.0.apk > delivery/apk-info.txt
-          sha256sum delivery/Marge-Plus-2.1.0.apk delivery/Marge-Plus-2.1.0-unsigned.apk > delivery/build-sha256.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose delivery/Marge-Plus-2.2.0.apk > delivery/apksigner-installable.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging delivery/Marge-Plus-2.2.0.apk > delivery/apk-info.txt
+          sha256sum delivery/Marge-Plus-2.2.0.apk delivery/Marge-Plus-2.2.0-unsigned.apk > delivery/build-sha256.txt
       - name: Enable KVM for Android emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

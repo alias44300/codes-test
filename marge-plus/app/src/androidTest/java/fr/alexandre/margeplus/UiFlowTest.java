@@ -25,12 +25,13 @@ public class UiFlowTest {
     private Context context;
     private Instrumentation instrumentation;
     private ActivityScenario<MainActivity> scenario;
+    private java.util.concurrent.CountDownLatch ioGate;
     @Before public void before() throws Exception {
         instrumentation=InstrumentationRegistry.getInstrumentation();context=instrumentation.getTargetContext();
         context.getSharedPreferences("ui",0).edit().clear().commit();new LedgerStore(context).save(new ArrayList<>());
         scenario=ActivityScenario.launch(MainActivity.class);
     }
-    @After public void after() throws Exception {if(scenario!=null)scenario.close();context.getSharedPreferences("ui",0).edit().clear().commit();new LedgerStore(context).save(new ArrayList<>());}
+    @After public void after() throws Exception {if(ioGate!=null)ioGate.countDown();if(scenario!=null)scenario.close();context.getSharedPreferences("ui",0).edit().clear().commit();new LedgerStore(context).save(new ArrayList<>());}
     private View find(MainActivity a,String tag){return a.getWindow().getDecorView().findViewWithTag(tag);}
     private void click(String tag){scenario.onActivity(a->{View v=find(a,tag);assertNotNull("Missing control "+tag,v);assertTrue(v.performClick());});instrumentation.waitForIdleSync();}
     private void field(String key,String value){scenario.onActivity(a->((EditText)find(a,"field_"+key)).setText(value));}
@@ -38,6 +39,8 @@ public class UiFlowTest {
     private List<Item> loaded(){try{return new LedgerStore(context).load();}catch(Exception e){throw new AssertionError(e);}}
     private boolean page(String tag){final boolean[] found={false};scenario.onActivity(a->found[0]=find(a,tag)!=null);return found[0];}
     private void screenshot(String name){File dir=new File(context.getExternalFilesDir(null),"qa");dir.mkdirs();assertTrue(UiDevice.getInstance(instrumentation).takeScreenshot(new File(dir,name+".png")));}
+    private void pauseNextIo(){ioGate=new java.util.concurrent.CountDownLatch(1);scenario.onActivity(a->{try{java.lang.reflect.Field f=MainActivity.class.getDeclaredField("work");f.setAccessible(true);((java.util.concurrent.ExecutorService)f.get(a)).execute(()->{try{ioGate.await(10,java.util.concurrent.TimeUnit.SECONDS);}catch(InterruptedException e){Thread.currentThread().interrupt();}});}catch(Exception e){throw new AssertionError(e);}});}
+    private boolean jobPending(){final boolean[] pending={false};scenario.onActivity(a->{try{java.lang.reflect.Field f=MainActivity.class.getDeclaredField("activeJob");f.setAccessible(true);pending[0]=f.get(a)!=null;}catch(Exception e){throw new AssertionError(e);}});return pending[0];}
 
     @Test public void createWithPhotoRecreateSellAndRetainPhoto() throws Exception {
         click("new_article");field("name","Gants d’entraînement");field("category","Boxe");field("platform","Vinted");field("purchase","25.00");field("shipping","3.20");field("buyer","1.80");
@@ -47,8 +50,8 @@ public class UiFlowTest {
         // Stub only the external document-picker result. Real app callback, image decoding,
         // private copy, recreation, sale and persistence execute on the emulator.
         Intent result=new Intent().setData(source);Instrumentation.ActivityMonitor monitor=new Instrumentation.ActivityMonitor(new IntentFilter(Intent.ACTION_OPEN_DOCUMENT),new Instrumentation.ActivityResult(Activity.RESULT_OK,result),true);instrumentation.addMonitor(monitor);
-        click("add_photos");waitFor(()->context.getFilesDir().toPath().resolve("photos").toFile().listFiles()!=null&&context.getFilesDir().toPath().resolve("photos").toFile().listFiles().length>0);
-        instrumentation.waitForIdleSync();instrumentation.removeMonitor(monitor);Thread.sleep(400);
+        pauseNextIo();click("add_photos");waitFor(this::jobPending);scenario.recreate();ioGate.countDown();waitFor(()->{try{return new org.json.JSONObject(context.getSharedPreferences("ui",0).getString("draft","{}")).getJSONObject("item").getJSONArray("photos").length()==1;}catch(Exception e){return false;}});
+        instrumentation.waitForIdleSync();instrumentation.removeMonitor(monitor);
         screenshot("02-fiche-achat");click("save_article");waitFor(()->loaded().size()==1);Item stock=loaded().get(0);assertEquals(3000,stock.cost());assertEquals(0,stock.profit());assertEquals(1,stock.photos.size());String savedPhoto=stock.photos.get(0);assertTrue(new PhotoStore(context).file(savedPhoto).isFile());context.getContentResolver().delete(source,null,null);
         scenario.close();scenario=ActivityScenario.launch(MainActivity.class);click("nav_articles");click("item_"+stock.id);screenshot("03-article-photo");
         scenario.onActivity(a->{TextView sell=findText(a.getWindow().getDecorView(),"Enregistrer la vente");assertNotNull(sell);sell.performClick();});instrumentation.waitForIdleSync();field("sale","45.00");field("salePlatform","Main propre");click("save_article");waitFor(()->loaded().get(0).sold);Item sold=loaded().get(0);assertEquals(1500,sold.profit());assertEquals(savedPhoto,sold.photos.get(0));assertTrue(new PhotoStore(context).file(savedPhoto).isFile());
@@ -65,5 +68,10 @@ public class UiFlowTest {
         scenario.onActivity(a->{TextView ok=findText(a.getWindow().getDecorView(),"Compris");});
         // Dismiss the validation dialog using Android Back, then correct the visible field.
         UiDevice.getInstance(instrumentation).pressBack();instrumentation.waitForIdleSync();field("purchase","12.34");click("save_article");waitFor(()->loaded().size()==1);assertEquals(1234,loaded().get(0).purchase);assertEquals(0,Ledger.summarize(loaded()).profit);
+    }
+
+    @Test public void recreationDuringSaveKeepsCompletionAndFreshInventory() throws Exception {
+        click("new_article");field("name","Premier article");field("purchase","10.00");pauseNextIo();click("save_article");waitFor(this::jobPending);scenario.recreate();ioGate.countDown();waitFor(()->loaded().size()==1);waitFor(()->!jobPending());
+        UiDevice.getInstance(instrumentation).pressBack();instrumentation.waitForIdleSync();click("nav_home");click("new_article");field("name","Second article");field("purchase","20.00");click("save_article");waitFor(()->loaded().size()==2);assertEquals(3000,Ledger.summarize(loaded()).purchases);
     }
 }

@@ -36,6 +36,9 @@ public class MainActivity extends Activity {
     private Editor editor;
     private final Map<String,EditText> fields=new LinkedHashMap<>();
     private Switch soldSwitch;
+    private JobState<?> activeJob;
+    private AlertDialog jobDialog;
+    private boolean foreground;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);ui=new Ui(this);store=new LedgerStore(this);photos=new PhotoStore(this);
@@ -48,10 +51,14 @@ public class MainActivity extends Activity {
         String draft=getSharedPreferences("ui",MODE_PRIVATE).getString("draft",null);
         if(draft!=null&&!loadFailed){try{editor=Editor.fromJson(new JSONObject(draft));route="editor";}catch(Exception e){noticeLater("Le brouillon n’a pas pu être relu. Les articles enregistrés sont conservés.");}}
         render();
+        Object retained=getLastNonConfigurationInstance();
+        if(retained instanceof JobState)activeJob=(JobState<?>)retained;
     }
     @Override protected void onSaveInstanceState(Bundle out){captureDraft();out.putString("route",route);out.putString("selected",selectedId);out.putString("previous",previous);out.putString("filter",filter);out.putString("query",query);out.putString("sort",sort);super.onSaveInstanceState(out);}
-    @Override protected void onPause(){captureDraft();super.onPause();}
-    @Override protected void onDestroy(){work.shutdown();thumbnails.shutdown();super.onDestroy();}
+    @Override protected void onResume(){super.onResume();foreground=true;if(activeJob!=null)attachJob();}
+    @Override protected void onPause(){captureDraft();foreground=false;if(activeJob!=null&&activeJob.owner==this)activeJob.owner=null;super.onPause();}
+    @Override public Object onRetainNonConfigurationInstance(){return activeJob;}
+    @Override protected void onDestroy(){if(activeJob!=null&&activeJob.owner==this)activeJob.owner=null;if(jobDialog!=null)jobDialog.dismiss();work.shutdown();thumbnails.shutdown();super.onDestroy();}
     private void noticeLater(String s){main.post(()->notice(s));}
     private void notice(String s){if(!isFinishing()&&!isDestroyed())new AlertDialog.Builder(this).setTitle("Marge +").setMessage(s).setPositiveButton("Compris",null).show();}
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show();}
@@ -179,7 +186,7 @@ public class MainActivity extends Activity {
     private void showFullPhoto(String file){ImageView image=new ImageView(this);image.setBackgroundColor(BG);image.setScaleType(ImageView.ScaleType.FIT_CENTER);AlertDialog d=new AlertDialog.Builder(this).setTitle("Photo de l’article").setView(image).setPositiveButton("Fermer",null).create();d.show();image.getLayoutParams().height=ui.dp(380);loadIntoHero(image,file);}
     private void kv(LinearLayout p,String key,String value,int color){LinearLayout r=ui.row();TextView k=ui.text(key,13,MUTED,false);r.addView(k,new LinearLayout.LayoutParams(0,-2,1));TextView v=ui.amount(value,14,color);v.setGravity(Gravity.END);LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(-2,-2);vp.leftMargin=ui.dp(12);r.addView(v,vp);ui.add(p,r,9);}
     private String displayDate(String value){try{return LocalDate.parse(value).format(DATE);}catch(Exception e){return value;}}
-    private void confirmDelete(Item i){new AlertDialog.Builder(this).setTitle("Supprimer cet article ?").setMessage("« "+i.name+" » sera retiré de vos comptes. Cette action est définitive.").setNegativeButton("Annuler",null).setPositiveButton("Supprimer",(d,w)->{List<Item> next=new ArrayList<>(items);next.removeIf(x->x.id.equals(i.id));saveItems(next,()->{route="articles";render();toast("Article supprimé");});}).show();}
+    private void confirmDelete(Item i){new AlertDialog.Builder(this).setTitle("Supprimer cet article ?").setMessage("« "+i.name+" » sera retiré de vos comptes. Cette action est définitive.").setNegativeButton("Annuler",null).setPositiveButton("Supprimer",(d,w)->{List<Item> next=new ArrayList<>(items);next.removeIf(x->x.id.equals(i.id));saveItems(next,a->{a.navigate("articles");a.toast("Article supprimé");});}).show();}
 
     private void openEditor(Item item){previous=route;editor=new Editor(item);route="editor";render();captureDraft();}
     private void renderEditor(){
@@ -230,22 +237,37 @@ public class MainActivity extends Activity {
             i.name=editor.raw.get("name").trim();i.category=editor.raw.getOrDefault("category","").trim();i.platform=editor.raw.getOrDefault("platform","").trim();i.salePlatform=editor.raw.getOrDefault("salePlatform","").trim();i.notes=editor.raw.getOrDefault("notes","").trim();i.purchaseDate=editor.raw.get("purchaseDate");i.sold=editor.sold;i.saleDate=i.sold?editor.raw.getOrDefault("saleDate",""):"";
             i.purchase=amount("purchase",true);i.shipping=amount("shipping",false);i.buyer=amount("buyer",false);i.repair=amount("repair",false);i.saleFees=amount("saleFees",false);i.saleShipping=amount("saleShipping",false);i.other=amount("other",false);i.sale=i.sold?amount("sale",true):0;i.estimate=amount("estimate",false);i.validate();
             List<Item> next=new ArrayList<>(items);boolean replaced=false;for(int n=0;n<next.size();n++)if(next.get(n).id.equals(i.id)){next.set(n,i);replaced=true;break;}if(!replaced)next.add(i);
-            saveItems(next,()->{clearDraft();selectedId=i.id;route="detail";previous="articles";hideKeyboard();render();toast("Article enregistré");});
+            saveItems(next,a->{a.clearDraft();a.selectedId=i.id;a.route="detail";a.previous="articles";a.hideKeyboard();a.render();a.toast("Article enregistré");});
         }catch(IllegalArgumentException e){notice("Vérifiez les montants et les dates. La date de vente doit être égale ou postérieure à la date d’achat.");}
     }
-    private void saveItems(List<Item> next,Runnable success){runJob("Enregistrement…",()->{store.save(next);return next;},saved->{items=saved;success.run();});}
+    private interface AfterSave{void run(MainActivity activity);}
+    private void saveItems(List<Item> next,AfterSave success){runJob("Enregistrement…",()->{store.save(next);return next;},(a,saved)->{a.items=saved;success.run(a);});}
     private void pickPhotos(){captureDraft();Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);try{startActivityForResult(intent,PICK_PHOTOS);}catch(ActivityNotFoundException e){notice("Aucun sélecteur de fichiers disponible sur cet appareil.");}}
     @Override protected void onActivityResult(int code,int result,Intent data){super.onActivityResult(code,result,data);if(result!=RESULT_OK||data==null)return;
-        if(code==PICK_PHOTOS&&editor!=null){List<Uri> uris=new ArrayList<>();if(data.getClipData()!=null){for(int i=0;i<data.getClipData().getItemCount();i++)uris.add(data.getClipData().getItemAt(i).getUri());}else if(data.getData()!=null)uris.add(data.getData());int available=6-editor.item.photos.size();if(uris.size()>available){notice("Vous pouvez ajouter "+available+" photo(s) de plus, avec un maximum de 6 par article.");return;}importing=true;runJob("Ajout des photos…",()->{List<String> names=new ArrayList<>();for(Uri u:uris)names.add(photos.importPhoto(u));return names;},names->{importing=false;editor.item.photos.addAll(names);captureDraft();render();});}
-        else if(data.getData()!=null){Uri uri=data.getData();if(code==SAVE_ZIP)runJob("Sauvegarde des articles et photos…",()->{try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException();new Backup(this).exportZip(items,out);}return true;},ok->toast("Sauvegarde créée avec vos photos"));
-            else if(code==SAVE_CSV)runJob("Export des comptes…",()->{try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException();new Backup(this).exportCsv(items,out);}return true;},ok->toast("Export CSV créé"));
-            else if(code==OPEN_ZIP)runJob("Vérification de la sauvegarde…",()->{try(InputStream in=getContentResolver().openInputStream(uri)){if(in==null)throw new IOException();return new Backup(this).importZip(in,items);}},loaded->{int added=loaded.size()-items.size();saveItems(loaded,()->{render();notice(added+" article(s) ajouté(s). Les articles déjà présents sont conservés.");});});}
+        if(code==PICK_PHOTOS&&editor!=null){List<Uri> uris=new ArrayList<>();if(data.getClipData()!=null){for(int i=0;i<data.getClipData().getItemCount();i++)uris.add(data.getClipData().getItemAt(i).getUri());}else if(data.getData()!=null)uris.add(data.getData());int available=6-editor.item.photos.size();if(uris.size()>available){notice("Vous pouvez ajouter "+available+" photo(s) de plus, avec un maximum de 6 par article.");return;}importing=true;runJob("Ajout des photos…",()->{List<String> names=new ArrayList<>();for(Uri u:uris)names.add(photos.importPhoto(u));return names;},(a,names)->{a.importing=false;a.editor.item.photos.addAll(names);a.captureDraft();a.render();});}
+        else if(data.getData()!=null){Uri uri=data.getData();if(code==SAVE_ZIP)runJob("Sauvegarde des articles et photos…",()->{try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException();new Backup(this).exportZip(items,out);}return true;},(a,ok)->a.toast("Sauvegarde créée avec vos photos"));
+            else if(code==SAVE_CSV)runJob("Export des comptes…",()->{try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException();new Backup(this).exportCsv(items,out);}return true;},(a,ok)->a.toast("Export CSV créé"));
+            else if(code==OPEN_ZIP)runJob("Vérification de la sauvegarde…",()->{try(InputStream in=getContentResolver().openInputStream(uri)){if(in==null)throw new IOException();List<Item> merged=new Backup(this).importZip(in,items);store.save(merged);return merged;}},(a,loaded)->{int added=loaded.size()-a.items.size();a.items=loaded;a.render();a.notice(added+" article(s) ajouté(s). Les articles déjà présents sont conservés.");});}
     }
     private interface Job<T>{T run()throws Exception;}
-    private interface Done<T>{void run(T value);}
+    private interface Done<T>{void run(MainActivity activity,T value);}
+    private static class JobState<T>{String message;Done<T> done;T value;Exception error;boolean completed,delivered;MainActivity owner;}
+    private void attachJob(){
+        if(activeJob==null)return;activeJob.owner=this;
+        if(jobDialog==null){jobDialog=new AlertDialog.Builder(this).setMessage(activeJob.message).setCancelable(false).create();jobDialog.show();}
+        deliverJob(activeJob);
+    }
+    private <T> void deliverJob(JobState<T> state){
+        if(!state.completed||state.delivered||state.owner==null)return;
+        MainActivity a=state.owner;if(a.isDestroyed()||a.isFinishing())return;
+        state.delivered=true;state.owner=null;a.activeJob=null;a.importing=false;if(a.jobDialog!=null){a.jobDialog.dismiss();a.jobDialog=null;}
+        if(state.error!=null)a.notice("L’opération n’a pas abouti. Vos articles enregistrés sont conservés. "+(state.error.getMessage()==null?"Vérifiez le fichier et l’espace disponible.":state.error.getMessage()));
+        else state.done.run(a,state.value);
+    }
     private <T> void runJob(String message,Job<T> job,Done<T> done){
-        AlertDialog progress=new AlertDialog.Builder(this).setMessage(message).setCancelable(false).create();progress.show();
-        work.execute(()->{try{T result=job.run();main.post(()->{if(isDestroyed())return;progress.dismiss();done.run(result);});}catch(Exception e){main.post(()->{if(isDestroyed())return;importing=false;progress.dismiss();notice("L’opération n’a pas abouti. Vos articles enregistrés sont conservés. "+(e.getMessage()==null?"Vérifiez le fichier et l’espace disponible.":e.getMessage()));});}});
+        if(activeJob!=null){toast("Une opération est déjà en cours.");return;}
+        JobState<T> state=new JobState<>();state.message=message;state.done=done;activeJob=state;if(foreground)attachJob();
+        work.execute(()->{try{T value=job.run();main.post(()->{state.value=value;state.completed=true;deliverJob(state);});}catch(Exception error){main.post(()->{state.error=error;state.completed=true;deliverJob(state);});}});
     }
 
     private void renderBilan(){
@@ -274,7 +296,7 @@ public class MainActivity extends Activity {
     private void tool(String icon,String title,String subtitle,Runnable action){LinearLayout c=ui.card();LinearLayout r=ui.row();r.addView(ui.icon(icon,MINT),new LinearLayout.LayoutParams(ui.dp(26),ui.dp(26)));LinearLayout names=ui.column();names.setPadding(ui.dp(14),0,ui.dp(10),0);names.addView(ui.text(title,16,INK,true));ui.gap(names,6);names.addView(ui.text(subtitle,12,MUTED,false));r.addView(names,new LinearLayout.LayoutParams(0,-2,1));r.addView(ui.icon("chevron",MUTED),new LinearLayout.LayoutParams(ui.dp(18),ui.dp(18)));c.addView(r);ui.click(c,action);ui.add(body,c,12);}
     private void createDocument(int request,String mime,String title){try{startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).setType(mime).addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,title),request);}catch(ActivityNotFoundException e){notice("Aucun sélecteur de fichiers disponible sur cet appareil.");}}
     private void legacyImport(){
-        LinearLayout content=ui.column();ui.pad(content,20,10);ui.add(content,ui.text("Dans l’ancienne Marge, touchez EXPORTER, copiez le texte puis collez-le ici. Les frais seront regroupés et les dates pourront être complétées dans les fiches.",14,MUTED,false),12);EditText text=editBox("Article;Achat;Frais;Vente;Bénéfice;Statut", "",false);text.setSingleLine(false);text.setMinLines(5);text.setMaxLines(10);text.setGravity(Gravity.TOP);text.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);content.addView(text);AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Importer depuis Marge").setView(content).setNegativeButton("Annuler",null).setPositiveButton("Vérifier",null).create();dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{List<Item> imported=new Backup(this).importLegacyCsv(text.getText().toString());new AlertDialog.Builder(this).setTitle("Ajouter "+imported.size()+" article(s) ?").setMessage("Les articles actuels seront conservés. Les frais importés seront classés dans « Autres frais ». Vérifiez les dates après import. Ne réimportez pas le même export plusieurs fois.").setNegativeButton("Annuler",null).setPositiveButton("Ajouter",(dd,w)->{List<Item> next=new ArrayList<>(items);next.addAll(imported);saveItems(next,()->{dialog.dismiss();navigate("articles");});}).show();}catch(Exception e){text.setError("Export non reconnu. Copiez le texte complet, avec son en-tête.");}}));dialog.show();
+        LinearLayout content=ui.column();ui.pad(content,20,10);ui.add(content,ui.text("Dans l’ancienne Marge, touchez EXPORTER, copiez le texte puis collez-le ici. Les frais seront regroupés et les dates pourront être complétées dans les fiches.",14,MUTED,false),12);EditText text=editBox("Article;Achat;Frais;Vente;Bénéfice;Statut", "",false);text.setSingleLine(false);text.setMinLines(5);text.setMaxLines(10);text.setGravity(Gravity.TOP);text.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE);content.addView(text);AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Importer depuis Marge").setView(content).setNegativeButton("Annuler",null).setPositiveButton("Vérifier",null).create();dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{List<Item> imported=new Backup(this).importLegacyCsv(text.getText().toString());new AlertDialog.Builder(this).setTitle("Ajouter "+imported.size()+" article(s) ?").setMessage("Les articles actuels seront conservés. Les frais importés seront classés dans « Autres frais ». Vérifiez les dates après import. Ne réimportez pas le même export plusieurs fois.").setNegativeButton("Annuler",null).setPositiveButton("Ajouter",(dd,w)->{List<Item> next=new ArrayList<>(items);next.addAll(imported);dialog.dismiss();saveItems(next,a->a.navigate("articles"));}).show();}catch(Exception e){text.setError("Export non reconnu. Copiez le texte complet, avec son en-tête.");}}));dialog.show();
     }
     private void renderAnalysis(){
         ui.add(body,ui.text("Avant d’acheter, vérifiez ce qu’il pourrait vous rester après tous les frais.",14,MUTED,false),20);

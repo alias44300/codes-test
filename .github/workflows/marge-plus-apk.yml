@@ -53,7 +53,7 @@ jobs:
           working-directory: marge-plus
           script: |
             gradle :app:connectedDebugAndroidTest --stacktrace
-            adb pull /sdcard/Android/data/fr.alexandre.margeplus/files/qa delivery/qa
+            adb pull /sdcard/Download/MargePlusQA delivery/qa
       - name: Upload build and verification evidence
         if: always()
         uses: actions/upload-artifact@v4

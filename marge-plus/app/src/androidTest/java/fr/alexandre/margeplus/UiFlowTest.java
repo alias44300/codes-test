@@ -38,7 +38,15 @@ public class UiFlowTest {
     private void waitFor(java.util.function.BooleanSupplier condition) throws Exception {long end=System.currentTimeMillis()+10000;while(System.currentTimeMillis()<end){if(condition.getAsBoolean())return;Thread.sleep(100);}fail("Operation did not complete");}
     private List<Item> loaded(){try{return new LedgerStore(context).load();}catch(Exception e){throw new AssertionError(e);}}
     private boolean page(String tag){final boolean[] found={false};scenario.onActivity(a->found[0]=find(a,tag)!=null);return found[0];}
-    private void screenshot(String name){File dir=new File(context.getExternalFilesDir(null),"qa");dir.mkdirs();assertTrue(UiDevice.getInstance(instrumentation).takeScreenshot(new File(dir,name+".png")));}
+    private void screenshot(String name) throws Exception {
+        // Keep evidence outside app-owned storage: Gradle removes the test app after the run.
+        assertTrue(name.matches("[a-z0-9-]+"));
+        UiDevice device=UiDevice.getInstance(instrumentation);instrumentation.waitForIdleSync();device.waitForIdle();
+        device.executeShellCommand("mkdir -p /sdcard/Download/MargePlusQA");
+        String path="/sdcard/Download/MargePlusQA/"+name+".png";
+        device.executeShellCommand("screencap -p "+path);
+        assertTrue("Screenshot missing: "+name,Long.parseLong(device.executeShellCommand("stat -c %s "+path).trim())>0);
+    }
     private void pauseNextIo(){ioGate=new java.util.concurrent.CountDownLatch(1);scenario.onActivity(a->{try{java.lang.reflect.Field f=MainActivity.class.getDeclaredField("work");f.setAccessible(true);((java.util.concurrent.ExecutorService)f.get(a)).execute(()->{try{ioGate.await(10,java.util.concurrent.TimeUnit.SECONDS);}catch(InterruptedException e){Thread.currentThread().interrupt();}});}catch(Exception e){throw new AssertionError(e);}});}
     private boolean jobPending(){final boolean[] pending={false};scenario.onActivity(a->{try{java.lang.reflect.Field f=MainActivity.class.getDeclaredField("activeJob");f.setAccessible(true);pending[0]=f.get(a)!=null;}catch(Exception e){throw new AssertionError(e);}});return pending[0];}
 

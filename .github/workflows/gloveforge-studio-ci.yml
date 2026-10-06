@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Reconstruct source bundle
+      - name: Reconstruct source and install v0.4 overrides
         shell: bash
         run: |
           set -euo pipefail
@@ -27,9 +27,15 @@ jobs:
           rm -rf gloveforge-studio/work
           mkdir -p gloveforge-studio/work
           unzip -q gloveforge-studio/source.zip -d gloveforge-studio/work
-          tr -d '\n\r ' < gloveforge-studio/v4-overrides.b64 | base64 -d > gloveforge-studio/v4-overrides.decoded.zip
-          unzip -t gloveforge-studio/v4-overrides.decoded.zip
-          unzip -oq gloveforge-studio/v4-overrides.decoded.zip -d gloveforge-studio/work/gloveforge-studio
+          ROOT='gloveforge-studio/work/gloveforge-studio'
+          cp gloveforge-studio/v4/src/types.ts "$ROOT/src/types.ts"
+          cp gloveforge-studio/v4/src/store.ts "$ROOT/src/store.ts"
+          cp gloveforge-studio/v4/src/App.tsx "$ROOT/src/App.tsx"
+          cp gloveforge-studio/v4/src/components/Controls.tsx "$ROOT/src/components/Controls.tsx"
+          cp gloveforge-studio/v4/src/components/Glove3D.tsx "$ROOT/src/components/Glove3D.tsx"
+          cp gloveforge-studio/v4/src/components/ZoneMaterial.tsx "$ROOT/src/components/ZoneMaterial.tsx"
+          cp gloveforge-studio/v4/src/lib/surfaceTexture.ts "$ROOT/src/lib/surfaceTexture.ts"
+          cat gloveforge-studio/v4/v4-extra.css >> "$ROOT/src/styles.css"
 
       - name: Install real CC-BY boxing glove mesh
         shell: bash
@@ -59,7 +65,7 @@ jobs:
         working-directory: gloveforge-studio/work/gloveforge-studio
         run: npm run build
 
-      - name: Verify model and v4 configurator are bundled
+      - name: Verify model and v0.4 configurator are bundled
         shell: bash
         run: |
           set -euo pipefail
@@ -67,7 +73,8 @@ jobs:
           test -s gloveforge-studio/work/gloveforge-studio/dist/glove-model/scene.bin
           test -s gloveforge-studio/work/gloveforge-studio/dist/glove-model/textures/main_normal.png
           grep -R "Elite Mexican Premium" gloveforge-studio/work/gloveforge-studio/dist/assets >/dev/null
-          grep -R "UV" gloveforge-studio/work/gloveforge-studio/dist/assets >/dev/null
+          grep -R "BoxElite + Doogma" gloveforge-studio/work/gloveforge-studio/dist/assets >/dev/null
+          grep -R "gloveforge-config-v4" gloveforge-studio/work/gloveforge-studio/dist/assets >/dev/null
 
       - name: Package verified build
         shell: bash

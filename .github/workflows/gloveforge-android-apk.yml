@@ -19,24 +19,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download validated GloveForge v0.4 web build
+      - name: Download visually verified GloveForge web build
         uses: actions/download-artifact@v4
         with:
           name: GloveForge_Studio_build
           path: /tmp/gloveforge-web
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: alias44300/codes-test
-          run-id: 37502347555
+          run-id: 37532461505
 
-      - name: Install validated web assets in Android app
+      - name: Install verified web assets in Android app
         shell: bash
         run: |
           set -euo pipefail
           test -f /tmp/gloveforge-web/web-build/index.html
           test -s /tmp/gloveforge-web/web-build/glove-model/scene.gltf
           test -s /tmp/gloveforge-web/web-build/glove-model/scene.bin
+          test -s /tmp/gloveforge-web/visual-smoke.png
           grep -R 'Elite Mexican Premium' /tmp/gloveforge-web/web-build/assets >/dev/null
-          grep -R 'BoxElite + Doogma' /tmp/gloveforge-web/web-build/assets >/dev/null
+          grep -R 'gloveforge-config-v4' /tmp/gloveforge-web/web-build/assets >/dev/null
           rm -rf gloveforge-android/app/src/main/assets
           mkdir -p gloveforge-android/app/src/main/assets
           cp -a /tmp/gloveforge-web/web-build/. gloveforge-android/app/src/main/assets/
@@ -54,7 +55,7 @@ jobs:
         working-directory: gloveforge-android
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
-      - name: Verify APK contains v0.4 configurator and real glove model
+      - name: Verify APK contains fixed real glove model
         shell: bash
         run: |
           set -euo pipefail
@@ -66,12 +67,12 @@ jobs:
           unzip -p "$APK" 'assets/assets/*.js' | grep -q 'gloveforge-config-v4'
           rm -rf gloveforge-android/package
           mkdir -p gloveforge-android/package
-          cp "$APK" gloveforge-android/package/GloveForge_Studio_v0.4.0_ULTIMATE.apk
-          sha256sum gloveforge-android/package/GloveForge_Studio_v0.4.0_ULTIMATE.apk > gloveforge-android/package/SHA256SUMS.txt
+          cp "$APK" gloveforge-android/package/GloveForge_Studio_v0.5.0_VISUAL_VERIFIED.apk
+          sha256sum gloveforge-android/package/GloveForge_Studio_v0.5.0_VISUAL_VERIFIED.apk > gloveforge-android/package/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: GloveForge_Studio_Android_APK_v0.4_ULTIMATE
+          name: GloveForge_Studio_Android_APK_v0.5_VISUAL_VERIFIED
           path: gloveforge-android/package/*
           if-no-files-found: error
           retention-days: 30

@@ -14,7 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -65,7 +65,7 @@ jobs:
         working-directory: gloveforge-studio/work/gloveforge-studio
         run: npm run build
 
-      - name: Verify model and v0.4 configurator are bundled
+      - name: Verify model and configurator are bundled
         shell: bash
         run: |
           set -euo pipefail
@@ -76,6 +76,36 @@ jobs:
           grep -R "BoxElite + Doogma" gloveforge-studio/work/gloveforge-studio/dist/assets >/dev/null
           grep -R "gloveforge-config-v4" gloveforge-studio/work/gloveforge-studio/dist/assets >/dev/null
 
+      - name: Visual WebGL smoke test
+        working-directory: gloveforge-studio/work/gloveforge-studio
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-audit --no-fund playwright@1.55.0
+          npx playwright install chromium
+          python3 -m http.server 4173 --directory dist >/tmp/gloveforge-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 2
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
+            const page = await browser.newPage({viewport:{width:720,height:1280},deviceScaleFactor:1});
+            const errors=[];
+            page.on('pageerror', e => errors.push(String(e)));
+            await page.goto('http://127.0.0.1:4173', {waitUntil:'networkidle'});
+            await page.waitForTimeout(2500);
+            const canvas = page.locator('canvas');
+            if (await canvas.count() < 1) throw new Error('No WebGL canvas rendered');
+            const box = await canvas.boundingBox();
+            if (!box || box.width < 300 || box.height < 300) throw new Error('Canvas viewport too small');
+            await page.screenshot({path:'/tmp/gloveforge-visual.png',fullPage:false});
+            if (errors.length) throw new Error('Page errors: '+errors.join(' | '));
+            await browser.close();
+          })();
+          NODE
+
       - name: Package verified build
         shell: bash
         run: |
@@ -84,6 +114,7 @@ jobs:
           mkdir -p gloveforge-studio/package
           (cd gloveforge-studio/work && zip -qr ../package/GloveForge_Studio_Source.zip gloveforge-studio)
           cp -r gloveforge-studio/work/gloveforge-studio/dist gloveforge-studio/package/web-build
+          cp /tmp/gloveforge-visual.png gloveforge-studio/package/visual-smoke.png
           (cd gloveforge-studio/package && sha256sum GloveForge_Studio_Source.zip > SHA256SUMS.txt)
 
       - uses: actions/upload-artifact@v4

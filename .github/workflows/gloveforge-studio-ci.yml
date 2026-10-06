@@ -27,6 +27,7 @@ jobs:
           rm -rf gloveforge-studio/work
           mkdir -p gloveforge-studio/work
           unzip -q gloveforge-studio/source.zip -d gloveforge-studio/work
+          cp gloveforge-studio/overrides/Glove3D.tsx gloveforge-studio/work/gloveforge-studio/src/components/Glove3D.tsx
 
       - uses: actions/setup-node@v4
         with:
@@ -46,7 +47,7 @@ jobs:
           set -euo pipefail
           rm -rf gloveforge-studio/package
           mkdir -p gloveforge-studio/package
-          cp gloveforge-studio/source.zip gloveforge-studio/package/GloveForge_Studio_Source.zip
+          (cd gloveforge-studio/work && zip -qr ../package/GloveForge_Studio_Source.zip gloveforge-studio)
           cp -r gloveforge-studio/work/gloveforge-studio/dist gloveforge-studio/package/web-build
           (cd gloveforge-studio/package && sha256sum GloveForge_Studio_Source.zip > SHA256SUMS.txt)
 

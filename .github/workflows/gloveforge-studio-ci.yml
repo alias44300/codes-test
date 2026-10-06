@@ -27,7 +27,7 @@ jobs:
           rm -rf gloveforge-studio/work
           mkdir -p gloveforge-studio/work
           unzip -q gloveforge-studio/source.zip -d gloveforge-studio/work
-          cp gloveforge-studio/overrides/Glove3D.tsx gloveforge-studio/work/gloveforge-studio/src/components/Glove3D.tsx
+          unzip -oq gloveforge-studio/v4-overrides.zip -d gloveforge-studio/work/gloveforge-studio
 
       - name: Install real CC-BY boxing glove mesh
         shell: bash
@@ -57,13 +57,15 @@ jobs:
         working-directory: gloveforge-studio/work/gloveforge-studio
         run: npm run build
 
-      - name: Verify model is bundled
+      - name: Verify model and v4 configurator are bundled
         shell: bash
         run: |
           set -euo pipefail
           test -s gloveforge-studio/work/gloveforge-studio/dist/glove-model/scene.gltf
           test -s gloveforge-studio/work/gloveforge-studio/dist/glove-model/scene.bin
           test -s gloveforge-studio/work/gloveforge-studio/dist/glove-model/textures/main_normal.png
+          grep -R "Elite Mexican Premium" gloveforge-studio/work/gloveforge-studio/dist/assets >/dev/null
+          grep -R "UV" gloveforge-studio/work/gloveforge-studio/dist/assets >/dev/null
 
       - name: Package verified build
         shell: bash

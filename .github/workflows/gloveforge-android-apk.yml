@@ -19,14 +19,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download validated GloveForge web build with real glove model
+      - name: Download validated GloveForge v0.4 web build
         uses: actions/download-artifact@v4
         with:
           name: GloveForge_Studio_build
           path: /tmp/gloveforge-web
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: alias44300/codes-test
-          run-id: 37495628881
+          run-id: 37502347555
 
       - name: Install validated web assets in Android app
         shell: bash
@@ -35,6 +35,8 @@ jobs:
           test -f /tmp/gloveforge-web/web-build/index.html
           test -s /tmp/gloveforge-web/web-build/glove-model/scene.gltf
           test -s /tmp/gloveforge-web/web-build/glove-model/scene.bin
+          grep -R 'Elite Mexican Premium' /tmp/gloveforge-web/web-build/assets >/dev/null
+          grep -R 'BoxElite + Doogma' /tmp/gloveforge-web/web-build/assets >/dev/null
           rm -rf gloveforge-android/app/src/main/assets
           mkdir -p gloveforge-android/app/src/main/assets
           cp -a /tmp/gloveforge-web/web-build/. gloveforge-android/app/src/main/assets/
@@ -52,7 +54,7 @@ jobs:
         working-directory: gloveforge-android
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
-      - name: Verify APK contains real glove model
+      - name: Verify APK contains v0.4 configurator and real glove model
         shell: bash
         run: |
           set -euo pipefail
@@ -60,13 +62,16 @@ jobs:
           test -s "$APK"
           unzip -l "$APK" | grep -q 'assets/glove-model/scene.gltf'
           unzip -l "$APK" | grep -q 'assets/glove-model/scene.bin'
+          unzip -p "$APK" 'assets/assets/*.js' | grep -q 'Elite Mexican Premium'
+          unzip -p "$APK" 'assets/assets/*.js' | grep -q 'gloveforge-config-v4'
+          rm -rf gloveforge-android/package
           mkdir -p gloveforge-android/package
-          cp "$APK" gloveforge-android/package/GloveForge_Studio_v0.3.0_REAL_GLOVE.apk
-          sha256sum gloveforge-android/package/GloveForge_Studio_v0.3.0_REAL_GLOVE.apk > gloveforge-android/package/SHA256SUMS.txt
+          cp "$APK" gloveforge-android/package/GloveForge_Studio_v0.4.0_ULTIMATE.apk
+          sha256sum gloveforge-android/package/GloveForge_Studio_v0.4.0_ULTIMATE.apk > gloveforge-android/package/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: GloveForge_Studio_Android_APK_v0.3_REAL_GLOVE
+          name: GloveForge_Studio_Android_APK_v0.4_ULTIMATE
           path: gloveforge-android/package/*
           if-no-files-found: error
           retention-days: 30

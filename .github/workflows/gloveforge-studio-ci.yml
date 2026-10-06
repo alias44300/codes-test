@@ -14,7 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -29,6 +29,22 @@ jobs:
           unzip -q gloveforge-studio/source.zip -d gloveforge-studio/work
           cp gloveforge-studio/overrides/Glove3D.tsx gloveforge-studio/work/gloveforge-studio/src/components/Glove3D.tsx
 
+      - name: Install real CC-BY boxing glove mesh
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODEL='gloveforge-studio/work/gloveforge-studio/public/glove-model'
+          mkdir -p "$MODEL/textures"
+          BASE='https://raw.githubusercontent.com/josericardopenase/BoxingVR/main/public/glove'
+          curl -fsSL "$BASE/scene.gltf" -o "$MODEL/scene.gltf"
+          curl -fsSL "$BASE/scene.bin" -o "$MODEL/scene.bin"
+          curl -fsSL "$BASE/textures/main_baseColor.jpeg" -o "$MODEL/textures/main_baseColor.jpeg"
+          curl -fsSL "$BASE/textures/main_metallicRoughness.png" -o "$MODEL/textures/main_metallicRoughness.png"
+          curl -fsSL "$BASE/textures/main_normal.png" -o "$MODEL/textures/main_normal.png"
+          curl -fsSL "$BASE/license.txt" -o "$MODEL/LICENSE.txt"
+          test -s "$MODEL/scene.gltf"
+          test -s "$MODEL/scene.bin"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -40,6 +56,14 @@ jobs:
       - name: Typecheck and build
         working-directory: gloveforge-studio/work/gloveforge-studio
         run: npm run build
+
+      - name: Verify model is bundled
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s gloveforge-studio/work/gloveforge-studio/dist/glove-model/scene.gltf
+          test -s gloveforge-studio/work/gloveforge-studio/dist/glove-model/scene.bin
+          test -s gloveforge-studio/work/gloveforge-studio/dist/glove-model/textures/main_normal.png
 
       - name: Package verified build
         shell: bash

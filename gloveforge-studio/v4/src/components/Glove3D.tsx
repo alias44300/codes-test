@@ -38,24 +38,34 @@ function useRealGloveGeometry() {
       if (!sourceMesh && (obj as THREE.Mesh).isMesh) sourceMesh = obj as THREE.Mesh
     })
     if (!sourceMesh) throw new Error('Real boxing glove mesh not found')
+
     const mesh = sourceMesh as THREE.Mesh
     const g = mesh.geometry.clone()
     g.applyMatrix4(mesh.matrixWorld)
     g.computeBoundingBox()
+
     const box = g.boundingBox!
     const center = box.getCenter(new THREE.Vector3())
+    const size = box.getSize(new THREE.Vector3())
     g.translate(-center.x, -center.y, -center.z)
-    g.scale(0.0030, 0.0034, 0.0025)
+
+    // Normalize from the source asset's real dimensions instead of multiplying
+    // by another tiny scale. The previous v0.4 applied the GLTF's 0.01 scene
+    // scale and then an extra ~0.003 scale, making the glove almost invisible.
+    const target = new THREE.Vector3(1.42, 2.34, 1.12)
+    g.scale(target.x / size.x, target.y / size.y, target.z / size.z)
+    g.computeVertexNormals()
     g.computeBoundingBox()
     g.computeBoundingSphere()
     return g
   }, [gltf.scene])
+
   useEffect(() => () => geometry.dispose(), [geometry])
   return geometry
 }
 
 function ShellZoneMesh({ zone, geometry }: { zone: ZoneId; geometry: THREE.BufferGeometry }) {
-  return <Selectable zone={zone}><mesh geometry={geometry} castShadow receiveShadow><ZoneMaterial zone={zone} shell /></mesh></Selectable>
+  return <Selectable zone={zone}><mesh geometry={geometry} castShadow receiveShadow frustumCulled={false}><ZoneMaterial zone={zone} shell /></mesh></Selectable>
 }
 
 function TubeBetween({ start, end, radius, zone }: { start: [number, number, number]; end: [number, number, number]; radius: number; zone: ZoneId }) {
@@ -71,7 +81,7 @@ function TubeBetween({ start, end, radius, zone }: { start: [number, number, num
 function LaceClosure({ closure }: { closure: ClosureId }) {
   if (closure === 'velcro') return null
   const points = Array.from({ length: 7 }, (_, i) => ({ y: -0.73 - i * 0.118, x: 0.17 }))
-  const z = 0.70
+  const z = 0.63
   return (
     <Selectable zone="laces"><group>
       <RoundedBox args={[0.39, 0.92, 0.045]} radius={0.075} smoothness={5} position={[0.05, -1.04, z - 0.045]}><meshStandardMaterial color="#111318" roughness={0.95} /></RoundedBox>
@@ -83,26 +93,26 @@ function LaceClosure({ closure }: { closure: ClosureId }) {
 
 function VelcroClosure({ closure }: { closure: ClosureId }) {
   if (closure === 'lace') return null
-  const y = closure === 'hybrid' ? -1.43 : -1.17
+  const y = closure === 'hybrid' ? -1.37 : -1.12
   return <Selectable zone="wristTop"><group>
-    <RoundedBox args={[1.32, 0.31, 0.15]} radius={0.08} smoothness={6} position={[0.00, y, -0.48]} rotation={[0, 0, -0.035]}><ZoneMaterial zone="wristTop" /></RoundedBox>
-    <RoundedBox args={[0.30, 0.31, 0.86]} radius={0.08} smoothness={6} position={[0.60, y, -0.07]} rotation={[0, -0.12, -0.035]}><ZoneMaterial zone="wristTop" /></RoundedBox>
-    <RoundedBox args={[0.76, 0.19, 0.024]} radius={0.035} smoothness={4} position={[-0.17, y, -0.565]} rotation={[0, 0, -0.035]}><meshStandardMaterial color="#24272d" roughness={0.98} /></RoundedBox>
+    <RoundedBox args={[1.25, 0.29, 0.14]} radius={0.08} smoothness={6} position={[0.00, y, -0.50]} rotation={[0, 0, -0.035]}><ZoneMaterial zone="wristTop" /></RoundedBox>
+    <RoundedBox args={[0.29, 0.29, 0.80]} radius={0.08} smoothness={6} position={[0.57, y, -0.10]} rotation={[0, -0.12, -0.035]}><ZoneMaterial zone="wristTop" /></RoundedBox>
+    <RoundedBox args={[0.72, 0.18, 0.024]} radius={0.035} smoothness={4} position={[-0.16, y, -0.585]} rotation={[0, 0, -0.035]}><meshStandardMaterial color="#24272d" roughness={0.98} /></RoundedBox>
   </group></Selectable>
 }
 
 function CuffReinforcement({ count }: { count: number }) {
   if (count <= 0) return null
-  const ys = count === 1 ? [-1.18] : count === 2 ? [-1.06, -1.34] : [-0.99, -1.23, -1.47]
-  return <Selectable zone="wristTop"><group>{ys.map((y) => <RoundedBox key={y} args={[0.98, 0.105, 0.075]} radius={0.045} smoothness={5} position={[0, y, -0.66]}><ZoneMaterial zone="wristTop" /></RoundedBox>)}</group></Selectable>
+  const ys = count === 1 ? [-1.05] : count === 2 ? [-0.99, -1.23] : [-0.94, -1.14, -1.34]
+  return <Selectable zone="wristTop"><group>{ys.map((y) => <RoundedBox key={y} args={[0.94, 0.095, 0.065]} radius={0.04} smoothness={5} position={[0, y, -0.61]}><ZoneMaterial zone="wristTop" /></RoundedBox>)}</group></Selectable>
 }
 
 function TrimAndStitching({ width }: { width: number }) {
-  const thickness = 0.022 + width * 0.010
+  const thickness = 0.018 + width * 0.008
   return <group>
-    <Selectable zone="trim"><RoundedBox args={[1.05, 0.045 + width * 0.018, 0.055]} radius={0.025} smoothness={4} position={[0, -0.69, -0.52]}><ZoneMaterial zone="trim" /></RoundedBox></Selectable>
-    <TubeBetween zone="stitching" radius={0.007} start={[-0.48, -0.655, -0.556]} end={[0.48, -0.655, -0.556]} />
-    <TubeBetween zone="trim" radius={thickness * 0.45} start={[-0.51, -0.705, -0.55]} end={[0.51, -0.705, -0.55]} />
+    <Selectable zone="trim"><RoundedBox args={[1.00, 0.038 + width * 0.014, 0.045]} radius={0.022} smoothness={4} position={[0, -0.69, -0.56]}><ZoneMaterial zone="trim" /></RoundedBox></Selectable>
+    <TubeBetween zone="stitching" radius={0.006} start={[-0.46, -0.655, -0.583]} end={[0.46, -0.655, -0.583]} />
+    <TubeBetween zone="trim" radius={thickness * 0.45} start={[-0.49, -0.705, -0.58]} end={[0.49, -0.705, -0.58]} />
   </group>
 }
 
@@ -110,15 +120,15 @@ function GripBar() {
   const gripBar = useGloveStore((s) => s.gripBar)
   if (gripBar === 'none') return null
   const thick = gripBar === 'thick'
-  return <Selectable zone="gripBar"><RoundedBox args={[0.78, thick ? 0.20 : 0.16, thick ? 0.13 : 0.10]} radius={0.07} smoothness={6} position={[-0.08, 0.05, 0.73]} rotation={[0.03, 0.04, -0.08]}><ZoneMaterial zone="gripBar" /></RoundedBox></Selectable>
+  return <Selectable zone="gripBar"><RoundedBox args={[0.70, thick ? 0.18 : 0.145, thick ? 0.12 : 0.095]} radius={0.065} smoothness={6} position={[-0.06, -0.02, 0.60]} rotation={[0.03, 0.04, -0.08]}><ZoneMaterial zone="gripBar" /></RoundedBox></Selectable>
 }
 
 function VentHoles() {
   const palmVent = useGloveStore((s) => s.palmVent)
   const thumbVent = useGloveStore((s) => s.thumbVent)
   return <group>
-    {palmVent && [-0.25, 0, 0.25].flatMap((x) => [-0.28, -0.05].map((y) => <mesh key={`p-${x}-${y}`} position={[x, y, 0.825]}><sphereGeometry args={[0.022, 12, 8]} /><meshStandardMaterial color="#08090c" roughness={1} /></mesh>))}
-    {thumbVent && [[0.55, 0.18, 0.55], [0.58, 0.35, 0.50], [0.60, 0.50, 0.44]].map((p, i) => <mesh key={`t-${i}`} position={p as [number, number, number]}><sphereGeometry args={[0.018, 12, 8]} /><meshStandardMaterial color="#08090c" roughness={1} /></mesh>)}
+    {palmVent && [-0.22, 0, 0.22].flatMap((x) => [-0.24, -0.04].map((y) => <mesh key={`p-${x}-${y}`} position={[x, y, 0.595]}><sphereGeometry args={[0.018, 12, 8]} /><meshStandardMaterial color="#08090c" roughness={1} /></mesh>))}
+    {thumbVent && [[0.50, 0.15, 0.43], [0.52, 0.30, 0.39], [0.53, 0.44, 0.34]].map((p, i) => <mesh key={`t-${i}`} position={p as [number, number, number]}><sphereGeometry args={[0.015, 12, 8]} /><meshStandardMaterial color="#08090c" roughness={1} /></mesh>)}
   </group>
 }
 
@@ -144,7 +154,7 @@ function Glove({ mirrored = false, x = 0 }: { mirrored?: boolean; x?: number }) 
 
 export function Glove3D() {
   const pair = useGloveStore((s) => s.pairView)
-  return pair === 'pair' ? <><Glove x={-1.02} /><Glove mirrored x={1.02} /></> : <Glove />
+  return pair === 'pair' ? <><Glove x={-0.95} /><Glove mirrored x={0.95} /></> : <Glove />
 }
 
 useGLTF.preload(REAL_GLOVE_URL)

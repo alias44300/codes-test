@@ -1,0 +1,42 @@
+name: Fetch Free Boxing Glove Model
+
+on:
+  push:
+    branches: [gloveforge-studio]
+    paths:
+      - '.github/workflows/fetch-free-boxing-glove-model.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download CC-BY boxing glove model
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/boxing-glove-model"
+          mkdir -p "$OUT/textures"
+          BASE='https://raw.githubusercontent.com/josericardopenase/BoxingVR/main/public/glove'
+          curl -L --fail --retry 3 "$BASE/scene.gltf" -o "$OUT/scene.gltf"
+          curl -L --fail --retry 3 "$BASE/scene.bin" -o "$OUT/scene.bin"
+          curl -L --fail --retry 3 "$BASE/textures/main_baseColor.jpeg" -o "$OUT/textures/main_baseColor.jpeg"
+          curl -L --fail --retry 3 "$BASE/textures/main_metallicRoughness.png" -o "$OUT/textures/main_metallicRoughness.png"
+          curl -L --fail --retry 3 "$BASE/textures/main_normal.png" -o "$OUT/textures/main_normal.png"
+          curl -L --fail --retry 3 "$BASE/license.txt" -o "$OUT/LICENSE.txt"
+          test -s "$OUT/scene.gltf"
+          test -s "$OUT/scene.bin"
+          sha256sum "$OUT"/scene.gltf "$OUT"/scene.bin "$OUT"/textures/* > "$OUT/SHA256SUMS.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Real_Boxing_Glove_CC-BY_4.0
+          path: ${{ runner.temp }}/boxing-glove-model
+          if-no-files-found: error
+          retention-days: 30

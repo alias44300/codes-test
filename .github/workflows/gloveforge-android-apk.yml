@@ -26,7 +26,7 @@ jobs:
           path: /tmp/gloveforge-web
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: alias44300/codes-test
-          run-id: 37476971353
+          run-id: 37485212501
 
       - name: Install validated web assets in Android app
         shell: bash
@@ -57,12 +57,12 @@ jobs:
           APK='gloveforge-android/app/build/outputs/apk/debug/app-debug.apk'
           test -s "$APK"
           mkdir -p gloveforge-android/package
-          cp "$APK" gloveforge-android/package/GloveForge_Studio_v0.1.0.apk
-          sha256sum gloveforge-android/package/GloveForge_Studio_v0.1.0.apk > gloveforge-android/package/SHA256SUMS.txt
+          cp "$APK" gloveforge-android/package/GloveForge_Studio_v0.2.0.apk
+          sha256sum gloveforge-android/package/GloveForge_Studio_v0.2.0.apk > gloveforge-android/package/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: GloveForge_Studio_Android_APK
+          name: GloveForge_Studio_Android_APK_v0.2
           path: gloveforge-android/package/*
           if-no-files-found: error
           retention-days: 30

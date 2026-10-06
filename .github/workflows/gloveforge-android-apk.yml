@@ -19,20 +19,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download validated GloveForge web build
+      - name: Download validated GloveForge web build with real glove model
         uses: actions/download-artifact@v4
         with:
           name: GloveForge_Studio_build
           path: /tmp/gloveforge-web
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: alias44300/codes-test
-          run-id: 37485212501
+          run-id: 37495628881
 
       - name: Install validated web assets in Android app
         shell: bash
         run: |
           set -euo pipefail
           test -f /tmp/gloveforge-web/web-build/index.html
+          test -s /tmp/gloveforge-web/web-build/glove-model/scene.gltf
+          test -s /tmp/gloveforge-web/web-build/glove-model/scene.bin
           rm -rf gloveforge-android/app/src/main/assets
           mkdir -p gloveforge-android/app/src/main/assets
           cp -a /tmp/gloveforge-web/web-build/. gloveforge-android/app/src/main/assets/
@@ -50,19 +52,21 @@ jobs:
         working-directory: gloveforge-android
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
-      - name: Verify APK
+      - name: Verify APK contains real glove model
         shell: bash
         run: |
           set -euo pipefail
           APK='gloveforge-android/app/build/outputs/apk/debug/app-debug.apk'
           test -s "$APK"
+          unzip -l "$APK" | grep -q 'assets/glove-model/scene.gltf'
+          unzip -l "$APK" | grep -q 'assets/glove-model/scene.bin'
           mkdir -p gloveforge-android/package
-          cp "$APK" gloveforge-android/package/GloveForge_Studio_v0.2.0.apk
-          sha256sum gloveforge-android/package/GloveForge_Studio_v0.2.0.apk > gloveforge-android/package/SHA256SUMS.txt
+          cp "$APK" gloveforge-android/package/GloveForge_Studio_v0.3.0_REAL_GLOVE.apk
+          sha256sum gloveforge-android/package/GloveForge_Studio_v0.3.0_REAL_GLOVE.apk > gloveforge-android/package/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: GloveForge_Studio_Android_APK_v0.2
+          name: GloveForge_Studio_Android_APK_v0.3_REAL_GLOVE
           path: gloveforge-android/package/*
           if-no-files-found: error
           retention-days: 30

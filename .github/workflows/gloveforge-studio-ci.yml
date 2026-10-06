@@ -27,7 +27,9 @@ jobs:
           rm -rf gloveforge-studio/work
           mkdir -p gloveforge-studio/work
           unzip -q gloveforge-studio/source.zip -d gloveforge-studio/work
-          unzip -oq gloveforge-studio/v4-overrides.zip -d gloveforge-studio/work/gloveforge-studio
+          tr -d '\n\r ' < gloveforge-studio/v4-overrides.b64 | base64 -d > gloveforge-studio/v4-overrides.decoded.zip
+          unzip -t gloveforge-studio/v4-overrides.decoded.zip
+          unzip -oq gloveforge-studio/v4-overrides.decoded.zip -d gloveforge-studio/work/gloveforge-studio
 
       - name: Install real CC-BY boxing glove mesh
         shell: bash

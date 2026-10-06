@@ -1,0 +1,58 @@
+name: GloveForge Studio CI
+
+on:
+  push:
+    branches: [gloveforge-studio]
+    paths:
+      - 'gloveforge-studio/**'
+      - '.github/workflows/gloveforge-studio-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct source bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat gloveforge-studio/source_zip/chunk_*.b64 | tr -d '\n\r ' | base64 -d > gloveforge-studio/source.zip
+          unzip -t gloveforge-studio/source.zip
+          rm -rf gloveforge-studio/work
+          mkdir -p gloveforge-studio/work
+          unzip -q gloveforge-studio/source.zip -d gloveforge-studio/work
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: gloveforge-studio/work/gloveforge-studio
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck and build
+        working-directory: gloveforge-studio/work/gloveforge-studio
+        run: npm run build
+
+      - name: Package verified build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf gloveforge-studio/package
+          mkdir -p gloveforge-studio/package
+          cp gloveforge-studio/source.zip gloveforge-studio/package/GloveForge_Studio_Source.zip
+          cp -r gloveforge-studio/work/gloveforge-studio/dist gloveforge-studio/package/web-build
+          (cd gloveforge-studio/package && sha256sum GloveForge_Studio_Source.zip > SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GloveForge_Studio_build
+          path: gloveforge-studio/package
+          if-no-files-found: error
+          retention-days: 30

@@ -37,10 +37,12 @@ L'écran est fourni par une interface de lecture et édition embarquée dans une
 - Les photos sont sauvegardées dans l'espace privé du WebView; sauvegarde Android cloud désactivée.
 - La compilation nécessite un environnement Android Studio ou CI GitHub Actions.
 
-## Version 1.0.4 : doublons et origines
+## Version 1.0.5 : doublons et origines
 
 - Cinq doublons de marques fusionnés : Tanoshi, Leone Sport/Leone 1947, ARES, BBE et Leaders.
-- 30 fiches auditées et corrigées à partir de documents, sites de marques et registres ; pays de création utilisé, jamais simplement le pays de fabrication.
-- 93 fiches restent à origine indéterminée, sans drapeau inventé.
+- 40 fiches auditées et corrigées à partir de documents, sites de marques et registres ; pays de création utilisé, jamais simplement le pays de fabrication.
+- 83 fiches restent à origine indéterminée, sans drapeau inventé.
 - Données locales des anciennes fiches conservées sous leurs identifiants historiques et incluses dans les exports JSON ; toute photo manquant à la fiche principale est transférée vers l'espace libre si disponible.
 - Important : les APK debug de runners GitHub distincts peuvent être signés avec des certificats incompatibles, nécessitant une nouvelle installation et l'export préalable d'une sauvegarde.
+
+L'origine de FightCamp est canadienne (Montréal), distincte de l'implantation actuelle américaine. GOAT Boxing et XPRT sont nés aux Pays-Bas, Necalli au Mexique.

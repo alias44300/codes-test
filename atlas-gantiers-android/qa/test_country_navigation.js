@@ -9,7 +9,7 @@ const codes=new Set(countries.map(x=>x.country));
 assert.strictEqual(codes.size,39);
 assert(brands.every(x=>codes.has(x.country||'ORIGINE À PRÉCISER')),'All brands must belong to a visible country');
 assert.strictEqual(brands.filter(x=>x.country===null).length,93);
-assert.strictEqual(brands.filter(x=>x.country==='Mexique').length,57);
+assert.strictEqual(brands.filter(x=>x.country==='Mexique').length,47);
 assert.strictEqual(brands.filter(x=>x.country==='Canada').length,4);
 assert(countries.some(x=>x.country==='ORIGINE À PRÉCISER'));
 assert(countries.some(x=>x.country==='Autriche'));

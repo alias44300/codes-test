@@ -59,6 +59,53 @@ select.search {max-width:100%}
 .small {font-size:11px;color:#c8baa5;line-height:1.5}.footer{font-size:12px;color:#b0a18f;margin-top:15px;text-align:center;max-width:640px}
 #uploadPhoto,#importFile {display:none}
 @media(max-width:840px){.shell{display:flex;flex-direction:column;padding:10px;gap:12px}.nav{position:static;max-height:unset;padding:10px;display:grid;grid-template-columns:1fr 1fr;column-gap:10px}.nav h2,.navlist,.info{display:none}.nav .status{grid-column:1/-1}.nav .search{margin-bottom:0}.header{position:relative;padding:12px;display:block}.brand-label{font-size:20px}.tools{margin-top:9px}.pager{font-size:12px}.bookpage{min-height:unset;padding:5.5%;gap:10px}.titleline{min-height:50px;gap:6px}.name{font-size:clamp(23px,6.4vw,36px)}.countryPage .name{font-size:clamp(34px,9vw,55px)}.originbox img{height:25px;width:42px}.topline{font-size:8px}.photogrid{gap:7px;flex-basis:51%}.imagebox{border-radius:6px}.imagebox.hero{border-radius:15px 2px 16px 2px}.camera span{font-size:8px}.camera svg{width:22px;height:22px}.editbox{padding:10px 12px}.editbox h2{font-size:20px;margin-bottom:5px}.biography{font-size:12px;min-height:40px}.originbox{font-size:8px}.cropPanel{margin-bottom:16px}.bottom{font-size:8px}}
+/* Correctif Android : une fiche doit s'allonger pour garder une biographie lisible. */
+@media screen and (max-width:840px){
+  .bookpage{
+    aspect-ratio:auto;
+    height:auto;
+    min-height:0;
+    padding:19px 17px 16px;
+    gap:13px;
+  }
+  .titleline{min-height:58px;gap:10px}
+  .photogrid,.countryPage .photogrid{
+    flex:0 0 auto;
+    flex-basis:auto;
+    height:355px;
+    min-height:0;
+    gap:9px;
+  }
+  .editbox,.countryPage .editbox{
+    flex:0 0 auto;
+    height:auto;
+    min-height:238px;
+    padding:15px 16px;
+    border-radius:4px 16px 4px 16px;
+  }
+  .editbox h2{
+    font-size:24px;
+    line-height:1.2;
+    margin:0 0 10px;
+    padding-bottom:9px;
+  }
+  .biography{
+    flex:0 0 auto;
+    min-height:170px;
+    height:auto;
+    font-size:17px;
+    line-height:1.5;
+    overflow:visible;
+    padding:3px 1px 5px;
+    word-break:normal;
+  }
+  .biography:focus{
+    outline:2px solid #bd9860;
+    outline-offset:3px;
+    border-radius:3px;
+  }
+  .bottom{font-size:9px;line-height:1.4;margin-top:0}
+}
 @media(max-width:840px){.nav.hasquery .navlist{display:grid;grid-column:1/-1;max-height:33vh;overflow-y:auto;border-top:1px solid #5b482f;padding-top:6px;margin-top:6px}.nav.hasquery .navitem{padding:11px 8px;font-size:14px}}
 @media print {
 @page {size:240mm 300mm;margin:0}
@@ -67,8 +114,8 @@ html,body{padding:0!important;margin:0!important;background:white!important}
 .shell{padding:0!important;margin:0!important;display:block!important;max-width:none!important}
 .editor{display:block!important}
 .bookpage{width:240mm!important;height:300mm!important;min-height:300mm!important;aspect-ratio:unset!important;box-shadow:none!important;border:0!important;border-radius:0!important;padding:12mm 13mm 10mm!important;gap:5mm!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;page-break-after:always!important}
-.bookpage .photogrid{flex:0 0 146mm!important;gap:4mm!important}.bookpage.countryPage .photogrid{flex:0 0 188mm!important}
-.bookpage .topline{font-size:12pt!important}.bookpage .name{font-size:31pt!important}.bookpage.countryPage .name{font-size:47pt!important}.bookpage .biography{font-size:13pt!important;min-height:unset!important;overflow:visible!important}.bookpage .editbox{padding:5mm!important}
+.bookpage .photogrid{flex:0 0 146mm!important;gap:4mm!important;height:auto!important;min-height:0!important}.bookpage.countryPage .photogrid{flex:0 0 188mm!important}
+.bookpage .topline{font-size:12pt!important}.bookpage .name{font-size:31pt!important}.bookpage.countryPage .name{font-size:47pt!important}.bookpage .biography{font-size:13pt!important;min-height:0!important;overflow:visible!important;flex:1!important}.bookpage .editbox{padding:5mm!important;min-height:0!important;flex:1!important}
 .bookpage .camera span{display:none!important}.bookpage .camera svg{display:none!important}
 }
 </style>

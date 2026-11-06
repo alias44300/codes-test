@@ -1,0 +1,47 @@
+name: "Atlas des Gantiers - APK Android"
+on:
+  push:
+    branches:
+      - atlas-gantiers-android-apk-20261106
+    paths:
+      - 'atlas-gantiers-android/**'
+      - '.github/workflows/atlas-gantiers-android-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: atlas-gantiers-android
+    steps:
+      - name: Checkout de la branche
+        uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: SDK Android
+        uses: android-actions/setup-android@v3
+      - name: Installer Android 35
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Vérifier 367 marques et 38 pays
+        run: python3 qa/check_project.py
+      - name: Compiler APK debug installable
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Enregistrer APK Android
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Atlas-des-Gantiers-APK-debug
+          path: atlas-gantiers-android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

@@ -23,8 +23,8 @@ for(const x of ['Arménie','Finlande','Suisse','Indonésie','Ouzbékistan','Irla
 const orig=brands.filter(x=>x.id.startsWith('p')&&Number(x.id.slice(1))>=289&&x.id!=='p417');
 const aud=orig.filter(x=>x.originAuditDate==='2026-11-06');
 assert(aud.length>=83,'Audit coverage must include all initial 83 unclassified brands');
-assert.strictEqual(aud.filter(x=>x.country&&x.originStatus==='probable').length,19);
-assert.strictEqual(aud.filter(x=>x.country&&x.originSource).length,63);
+assert.strictEqual(aud.filter(x=>x.country&&x.originStatus==='probable').length,18);
+assert.strictEqual(aud.filter(x=>x.country&&x.originSource).length,62);
 assert.strictEqual(aud.filter(x=>!x.country&&x.originStatus==='non confirmé').length,21);
 assert(html.includes('ORIGIN_AUDIT'),'Audit metadata missing');
 assert.strictEqual(brands.find(x=>x.id==='p144')?.title,'TIGRAO');

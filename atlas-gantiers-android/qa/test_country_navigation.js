@@ -8,7 +8,7 @@ assert.strictEqual(countries.length,45);assert.strictEqual(brands.length,363);
 const codes=new Set(countries.map(x=>x.country));
 assert.strictEqual(codes.size,45);
 assert(brands.every(x=>codes.has(x.country||'ORIGINE À PRÉCISER')),'All brands must belong to a visible country');
-assert.strictEqual(brands.filter(x=>x.country===null).length,14);
+assert.strictEqual(brands.filter(x=>x.country===null).length,9);
 assert.strictEqual(brands.filter(x=>x.country==='Mexique').length,49);
 assert.strictEqual(brands.filter(x=>x.country==='Canada').length,7);
 assert(countries.some(x=>x.country==='ORIGINE À PRÉCISER'));
@@ -23,9 +23,9 @@ for(const x of ['Arménie','Finlande','Suisse','Indonésie','Ouzbékistan','Irla
 const orig=brands.filter(x=>x.id.startsWith('p')&&Number(x.id.slice(1))>=289&&x.id!=='p417');
 const aud=orig.filter(x=>x.originAuditDate==='2026-11-06');
 assert(aud.length>=83,'Audit coverage must include all initial 83 unclassified brands');
-assert.strictEqual(aud.filter(x=>x.country&&x.originStatus==='probable').length,19);
-assert.strictEqual(aud.filter(x=>x.country&&x.originSource).length,69);
-assert.strictEqual(aud.filter(x=>!x.country&&x.originStatus==='non confirmé').length,14);
+assert.strictEqual(aud.filter(x=>x.country&&x.originStatus==='probable').length,22);
+assert.strictEqual(aud.filter(x=>x.country&&x.originSource).length,74);
+assert.strictEqual(aud.filter(x=>!x.country&&x.originStatus==='non confirmé').length,9);
 assert(html.includes('ORIGIN_AUDIT'),'Audit metadata missing');
 
 for(const [id,country] of Object.entries({p303:'États-Unis',p330:'États-Unis',p342:'Canada',p350:'Tchéquie',p355:'Pakistan',p361:'Japon',p353:'États-Unis'})) {
@@ -34,8 +34,22 @@ for(const [id,country] of Object.entries({p303:'États-Unis',p330:'États-Unis',
  assert.strictEqual(record?.countryBasis,'implantation actuelle');
  assert(record?.originSource,'Missing evidence for '+id);
 }
-assert.strictEqual(brands.filter(x=>x.baseAuditDate==='2026-11-06').length,7);
+assert.strictEqual(brands.filter(x=>x.baseAuditDate==='2026-11-06').length,21);
 assert(html.includes('PAYS D’IMPLANTATION'),'Current base must be visibly distinguished from founding country');
+
+const newEvidence={p307:['États-Unis','probable'],p357:['Royaume-Uni','documenté'],p379:['Royaume-Uni','probable'],p404:['Royaume-Uni','documenté'],p407:['États-Unis','probable']};
+for(const [id,[country,status]] of Object.entries(newEvidence)){
+ const e=brands.find(x=>x.id===id);assert(e,'Missing brand '+id);
+ assert.strictEqual(e.country,country,'Wrong base '+id);
+ assert.strictEqual(e.originStatus,status,'Wrong evidence level '+id);
+ assert(e.originSource?.startsWith('https://'),'Source missing '+id);
+}
+const initialUnknown=['p292','p298','p319','p328','p341','p346','p360','p388','p395'];
+for(const id of initialUnknown){
+ const e=brands.find(x=>x.id===id);assert.strictEqual(e?.country,null,'Country must not be fabricated for '+id);
+ assert(e.originNote&&e.baseResearchSource,'Research notes and evidence required for '+id);
+}
+
 
 assert.strictEqual(brands.find(x=>x.id==='p144')?.title,'TIGRAO');
 assert.strictEqual(brands.find(x=>x.id==='p137')?.title,'adidas SHORI (ADISHORI)');
@@ -57,4 +71,4 @@ const sorter=new Intl.Collator('fr',{sensitivity:'base',numeric:true});
 const sorted=brands.filter(x=>x.country==='Mexique').map(x=>x.title).sort(sorter.compare);
 assert(sorted.indexOf('Campeón / Deportes Campeón')<sorted.indexOf('DC Boxing Mexico'));
 assert(sorted.indexOf('DC Boxing Mexico')<sorted.indexOf('Guzmán Boxing'));
-console.log('PASS: 45 countries, 363 brands, 14 unknown, Mexico 49, navigation JS valid');
+console.log('PASS: 45 countries, 363 brands, 9 unknown, Mexico 49, navigation JS valid');

@@ -89,3 +89,12 @@ L'origine de FightCamp est canadienne (Montréal), distincte de l'implantation a
 - Sources intégrées dans chaque entrée ; 363 marques, 45 chapitres, ID des fiches et photos existantes conservés.
 
 - Alerte : les fiches précédemment classées par pays de création n’ont pas été modifiées.
+
+
+## Complément d'audit : Lead Boxing USA
+
+- Lead Boxing/Leaders Boxing USA est basé commercialement aux États-Unis ; retrait à Brooklyn (New York).
+
+- LEAD Boxing « SuperLEAD Mex » est commercialisé comme conçu aux États-Unis et fabriqué au Mexique. La société Leaders Fight Gear est traitée séparément en attendant preuve qu'il s'agit juridiquement de la même entreprise.
+
+- Au total : 7 bases vérifiées ou prudemment documentées sur les 21 fiches, 14 origines/implantations encore non prouvées.

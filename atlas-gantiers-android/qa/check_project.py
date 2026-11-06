@@ -12,7 +12,7 @@ entries=data['entries'];flags=data['flags']
 assert len(entries)==407,len(entries)
 assert sum(e['type']=='brand' for e in entries)==362
 assert sum(e['type']=='country' for e in entries)==45
-assert len(set(e['id'] for e in entries))==401,'duplicate IDs'
+assert len(set(e['id'] for e in entries))==407,'duplicate IDs'
 assert all(e['title'].strip() for e in entries)
 assert len(flags)>20
 assert 'object-fit:cover' in asset

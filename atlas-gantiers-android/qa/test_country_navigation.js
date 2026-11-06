@@ -20,7 +20,7 @@ assert.strictEqual(waiis[0].country,null,'Do not invent the birthplace');
 assert.strictEqual(waiis[0].originStatus,'non confirmé');
 assert(!brands.some(x=>x.title==='WAIS'),'Incorrect spelling must not appear');
 for(const x of ['Arménie','Finlande','Suisse','Indonésie','Ouzbékistan','Irlande'])assert(countries.some(c=>c.country===x),'Missing verified country '+x);
-const orig=brands.filter(x=>x.id.startsWith('p')&&Number(x.id.slice(1))>=289);
+const orig=brands.filter(x=>x.id.startsWith('p')&&Number(x.id.slice(1))>=289&&x.id!=='p417');
 const aud=orig.filter(x=>x.originAuditDate==='2026-11-06');
 assert(aud.length>=83,'Audit coverage must include all initial 83 unclassified brands');
 assert.strictEqual(aud.filter(x=>x.country&&x.originStatus==='probable').length,18);

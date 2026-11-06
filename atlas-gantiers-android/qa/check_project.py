@@ -27,6 +27,6 @@ assert app is not None
 assert app.attrib.get(ns+'allowBackup')=='false'
 assert not manifest.getroot().findall('uses-permission'), 'Unexpected Android permissions'
 assert (root/'app/src/main/java/fr/atlasgantiers/app/MainActivity.java').exists()
-assert (root/'.github/workflows/build-android.yml').exists()
+assert (root/'.github/workflows/build-android.yml').exists() or (root.parent/'.github/workflows/atlas-gantiers-android-apk.yml').exists()
 print('PASS static data: 367 marques + 38 pays = 405 entries; ids unique; flags present')
 print('PASS gallery placeholder/crop/zoom/fade/backup controls, manifest no permissions, allowBackup=false')

@@ -98,3 +98,12 @@ L'origine de FightCamp est canadienne (Montréal), distincte de l'implantation a
 - LEAD Boxing « SuperLEAD Mex » est commercialisé comme conçu aux États-Unis et fabriqué au Mexique. La société Leaders Fight Gear est traitée séparément en attendant preuve qu'il s'agit juridiquement de la même entreprise.
 
 - Au total : 7 bases vérifiées ou prudemment documentées sur les 21 fiches, 14 origines/implantations encore non prouvées.
+
+## Audit 1.0.11 des 14 dernières marques
+
+- Recherche spécifique sur le pays **où la marque est basée**, distinct de l'usine et de la naissance historique.
+- Deux localisations documentées : Loaded Boxing / Loaded Gloves Ltd, Coventry, Royaume-Uni (registre d'entreprise 11403475) ; VIP / Vital Impact Protection Ltd, Manchester, Royaume-Uni.
+- Trois localisations **probables et explicitement signalées** : Brothers Fight Co (fondateur interviewé dans la région du Massachusetts, États-Unis), Ringcraft / Red Diamond (l'entreprise Ringcraft est britannique mais le lien juridique avec les gants reste à confirmer), Wunder Athletics (entreprise homonyme exacte enregistrée à Los Angeles, sans preuve directe du lien avec les gants).
+- Neuf marques restent sans adresse commerciale fiable : Albatross Boxing, Badass, Dreams Achieved, Fighters Block, Hybrid Boxing, JMB Boxing, Mantal Game, Swift Motion, Underdog. Les dossiers mentionnent les sources consultées et la raison de l'incertitude.
+- Les 14 fiches auditées sont conservées et restent éditables, les sources et limites sont visibles dans le catalogue.
+- Total : 363 marques, 45 pays/rubriques dont 'ORIGINE À PRÉCISER', neuf marques encore non attribuées.

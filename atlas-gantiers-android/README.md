@@ -52,3 +52,13 @@ L'origine de FightCamp est canadienne (Montréal), distincte de l'implantation a
 - TIGRAO : intitulé unique, sans l'ajout « / Chiguron ». Le nom en japonais n'est pas une deuxième marque.
 - adidas SHORI (ADISHORI) : gamme fabriquée au Japon, identifiée distinctement de la marque mère adidas, d'origine allemande. La fiche existante a gardé son identifiant et ses photos.
 - Test de non-régression sur les neuf fiches du Japon et l'unicité de ces deux noms.
+
+## Mise à jour 1.0.7 — audit des 83 origines manquantes
+
+- 83 fiches individuellement examinées et annotées, avec leur source et leur statut.
+- 62 origines attribuées, dont 18 marquées « probables » car les preuves disponibles documentent surtout l'entreprise exploitante, non le pays historique de la première commercialisation.
+- 21 origines non démontrées restent dans « ORIGINE À PRÉCISER » avec une raison explicite : éviter les faux drapeaux.
+- 6 chapitres-pays ajoutés : Arménie, Finlande, Suisse, Indonésie, Ouzbékistan et Irlande.
+- 362 marques conservées ; 45 chapitres pays, incluant « Origine à préciser ».
+- La navigation signale les pays « PROBABLES » directement sur les fiches.
+- Les photos et biographies sont stockées dans la mémoire privée de l'application. La variante côte à côte est recommandée ; importer une sauvegarde JSON de l'ancienne version pour transférer les données.

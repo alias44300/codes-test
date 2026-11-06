@@ -10,7 +10,7 @@ assert.strictEqual(codes.size,39);
 assert(brands.every(x=>codes.has(x.country||'ORIGINE À PRÉCISER')),'All brands must belong to a visible country');
 assert.strictEqual(brands.filter(x=>x.country===null).length,93);
 assert.strictEqual(brands.filter(x=>x.country==='Mexique').length,47);
-assert.strictEqual(brands.filter(x=>x.country==='Canada').length,4);
+assert.strictEqual(brands.filter(x=>x.country==='Canada').length,5);
 assert(countries.some(x=>x.country==='ORIGINE À PRÉCISER'));
 assert(countries.some(x=>x.country==='Autriche'));
 for (const id of ['p46','p132','p295','p300','p354']) assert(!brands.some(x=>x.id===id), 'duplicate brand '+id);

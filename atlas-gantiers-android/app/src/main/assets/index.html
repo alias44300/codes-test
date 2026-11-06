@@ -118,10 +118,81 @@ html,body{padding:0!important;margin:0!important;background:white!important}
 .bookpage .topline{font-size:12pt!important}.bookpage .name{font-size:31pt!important}.bookpage.countryPage .name{font-size:47pt!important}.bookpage .biography{font-size:13pt!important;min-height:0!important;overflow:visible!important;flex:1!important}.bookpage .editbox{padding:5mm!important;min-height:0!important;flex:1!important}
 .bookpage .camera span{display:none!important}.bookpage .camera svg{display:none!important}
 }
+/* Navigation tactile pays > marques, independent du gabarit de la fiche. */
+#catalogueBrowser[hidden],#catalogueBrowser [hidden]{display:none!important}
+#catalogueBrowser{max-width:1000px;margin:0 auto;padding:22px 18px 46px;min-height:75vh}
+.catKicker{font-size:11px;letter-spacing:.23em;color:#d4b77f;font-weight:700;text-transform:uppercase}
+.catTitle{font-family:Georgia,serif;color:#f5eddd;font-weight:400;font-size:clamp(33px,6vw,51px);margin:10px 0}
+.catIntro{font-size:14px;line-height:1.6;color:#c4baa8;margin:0 0 20px}
+.catSearch{display:block;box-sizing:border-box;width:100%;min-height:52px;font-size:16px;color:#fff;background:#25221d;border:1px solid #806b4a;border-radius:11px;padding:13px 14px;margin-bottom:18px;outline-offset:3px}
+.catGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px}
+.catCountryBtn,.catBrandBtn{width:100%;text-align:left;background:#211e19;border:1px solid #5a4c35;color:#f1e8d7;cursor:pointer;border-radius:11px;display:flex;align-items:center;gap:13px;min-height:67px;padding:13px 14px}
+.catCountryBtn:active,.catBrandBtn:active{background:#3b3022}
+.catFlag{width:44px;height:30px;flex:0 0 44px;object-fit:cover;border:1px solid #a59274;border-radius:4px}
+.catNoFlag{width:44px;height:30px;flex:0 0 44px;border:1px dashed #806d4c;display:grid;place-items:center;border-radius:4px;color:#bdaa85}
+.catCountryName{display:block;font-size:17px;font-weight:600;line-height:1.2}
+.catCountryMeta,.catBrandMeta{display:block;font-size:12px;color:#c8b69a;line-height:1.5;margin-top:3px}
+.catArrow{font-size:24px;color:#ccab6b;margin-left:auto;flex:none;line-height:1}
+.catBack{border:0;background:transparent;color:#e7c88d;padding:9px 1px;margin-bottom:9px;font-size:15px;font-weight:650;text-align:left;cursor:pointer}
+.catBack:active{text-decoration:underline}
+.catCountryHead{display:flex;align-items:center;gap:14px;margin:7px 0 12px}
+.catCountryHead .catFlag{width:53px;height:36px;flex-basis:53px}
+.catCountryHead .catTitle{margin:0}
+.catCountrySummary{font-size:14px;color:#c9bda8;margin:0 0 18px}
+.catIntroButton{background:linear-gradient(90deg,#533b20,#2b251d);border:1px solid #947344;border-radius:9px;color:#f6e4bc;padding:12px 14px;margin-bottom:17px;min-height:46px;font-weight:600;text-align:left;width:100%;cursor:pointer}
+.catLetters{display:flex;overflow-x:auto;gap:6px;padding:8px 0 12px;margin:0 0 6px;scrollbar-width:thin}
+.catLetter{flex:none;background:#302920;border:1px solid #685536;color:#f3d69f;border-radius:7px;min-width:33px;height:35px;font-size:13px;cursor:pointer}
+.catBrandLetter{font-size:14px;font-weight:700;color:#d4b178;border-bottom:1px solid #504230;padding:16px 0 8px;margin:8px 0}
+.catBrands{display:grid;gap:7px}
+.catBrandBtn{min-height:60px;display:flex;padding:12px 14px}
+.catBrandName{display:block;font-size:16px;line-height:1.3;font-weight:600}
+.catEmpty{color:#c8bba5;padding:16px 0;font-size:14px;line-height:1.5}
+.catHeaderSelected{font-size:13px;color:#d8b57d;margin-bottom:6px}
+.catEditorBack{border:1px solid #987b4c;background:#322719;color:#f7e5bc;min-height:45px;border-radius:10px;padding:10px 15px;margin:0 0 13px;cursor:pointer;font-weight:650;width:100%;max-width:740px;text-align:left}
+body.view-browse .shell{display:none!important}
+body.view-browse #printBtn{display:none!important}
+body.view-editor #catalogueBrowser{display:none!important}
+body.view-editor .shell{display:flex;justify-content:center;max-width:990px;gap:0}
+body.view-editor .nav{display:none!important}
+body.view-editor .editor{width:100%}
+@media screen and (max-width:840px){
+ #catalogueBrowser{padding:15px 13px 34px;min-height:0}
+ .catGrid{grid-template-columns:1fr;gap:7px}
+ .catCountryBtn{min-height:65px;padding:10px 12px}
+ .catTitle{font-size:36px}
+ .catCountryName{font-size:16px}
+ .catCountryHead .catTitle{font-size:33px}
+ .catBrandBtn{min-height:60px}
+ body.view-editor .shell{padding:10px 10px 30px}
+}
+@media print{#catalogueBrowser,#openCatalogue{display:none!important}}
+
 </style>
 </head>
-<body>
+<body class="view-browse">
 <header class="header"><div><div class="brand-label">ATLAS DES GANTIERS</div><div class="caption">ÉDITION ANDROID · GALERIE · FONDUS · HORS LIGNE</div></div><div class="tools"><button class="btn primary" id="printBtn">Exporter cette page en PDF</button><button class="btn" id="backupBtn">Sauvegarder mes données</button><button class="btn" id="restoreBtn">Restaurer</button></div></header>
+<section id="catalogueBrowser" aria-label="Explorer les marques par pays">
+  <div id="catalogueCountries" class="catPane">
+    <div class="catKicker">Atlas mondial des gantiers</div>
+    <h1 class="catTitle">Choisir un pays</h1>
+    <p class="catIntro">Sélectionne un pays pour consulter toutes ses marques de A à Z.</p>
+    <label for="globalBrandSearch" class="catKicker">Ou chercher directement une marque</label>
+    <input id="globalBrandSearch" class="catSearch" type="search" placeholder="Rechercher une marque…" autocomplete="off"/>
+    <div id="globalSearchResults" class="catBrands" hidden></div>
+    <div id="countryButtons" class="catGrid"></div>
+  </div>
+  <div id="catalogueBrands" class="catPane" hidden>
+    <button type="button" class="catBack" id="backCountries">‹ Tous les pays</button>
+    <div id="catalogueCountryHeading" class="catCountryHead"></div>
+    <p class="catCountrySummary" id="countryBrandCount"></p>
+    <button type="button" class="catIntroButton" id="countryIntro">Consulter la page de présentation du pays</button>
+    <label for="countryBrandSearch" class="catKicker">Filtrer les marques de ce pays</label>
+    <input id="countryBrandSearch" class="catSearch" type="search" placeholder="Rechercher dans ce pays…" autocomplete="off"/>
+    <div class="catLetters" id="letterNav" aria-label="Accès rapide par lettre"></div>
+    <div id="brandButtons" class="catBrands"></div>
+  </div>
+</section>
+
 <div class="shell">
 <aside class="nav">
 <h2>CHOISIR UNE FICHE</h2>
@@ -132,6 +203,7 @@ html,body{padding:0!important;margin:0!important;background:white!important}
 <div class="info">1. Choisissez une marque ou un pays.<br>2. Touchez un cadre pour ajouter votre photo.<br>3. Écrivez directement dans « Biographie ».<br><br>Les images gardent leurs proportions et sont recadrées dans le cadre. Les fondus restent toujours actifs. Sauvegardez régulièrement une copie de vos données.</div>
 </aside>
 <main class="editor">
+<button type="button" class="catEditorBack" id="openCatalogue">‹ Retour aux marques</button>
 <div class="pager"><button class="btn" id="prevBtn">‹ Précédent</button><span id="pageCount"></span><button class="btn" id="nextBtn">Suivant ›</button></div>
 <article id="bookpage" class="bookpage">
  <div class="topline"><span id="kicker">PROFIL DE MARQUE</span><span>ÉDITION COLLECTION</span></div>
@@ -204,19 +276,93 @@ if(typeof ResizeObserver!=='undefined'){
 }else{window.addEventListener('resize',()=>boxEls.forEach((_,i)=>applyPhotoCrop(i)))}
 async function display(i){if(i<0||i>=ENTRIES.length)return;if(savePending){clearTimeout(savePending);savePending=null;await saveSaved(ENTRIES[currentIndex].id,JSON.parse(JSON.stringify(currentRecord)))}if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();currentIndex=i;activeSlot=-1;$('cropPanel').classList.remove('visible');const entry=ENTRIES[i];currentRecord=normalizeRecord(await readSaved(entry.id));$('bookpage').classList.toggle('countryPage',entry.type==='country');$('kicker').textContent=entry.type==='country'?'CHAPITRE · PAYS':'PROFIL DE MARQUE';$('name').textContent=entry.title;$('bioTitle').textContent=entry.type==='country'?'Introduction':'Biographie';$('originLabel').textContent=entry.type==='country'?'PAYS':'PAYS D’ORIGINE';$('bio').textContent=currentRecord.bio;let flag=flagFor(entry);$('flagImage').hidden=!flag;$('originUnknown').hidden=Boolean(flag);if(flag){$('flagImage').src=flag;$('flagbar').innerHTML='<img src="'+flag+'" alt="" />'}else{$('flagImage').removeAttribute('src');$('flagbar').innerHTML=''};boxEls.forEach((_,j)=>updateSlot(j));$('pagenum').textContent='PAGE '+entry.page;$('pageCount').textContent=`Fiche ${i+1} / ${ENTRIES.length} · page ${entry.page}`;$('pagePick').value=String(i);document.querySelectorAll('.navitem').forEach(b=>b.classList.toggle('current',Number(b.dataset.i)===i));status('');if(window.innerWidth<841)window.scrollTo({top:0,behavior:'instant'})}
 function fillNav(filter=''){const term=filter.toLocaleLowerCase('fr');const list=ENTRIES.map((e,i)=>({e,i})).filter(v=>v.e.title.toLocaleLowerCase('fr').includes(term)).slice(0,120);$('navlist').innerHTML=list.map(({e,i})=>`<button class="navitem ${e.type==='country'?'country':''}" data-i="${i}">${e.type==='country'?'◆ ':''}${esc(e.title)}</button>`).join('');document.querySelectorAll('.navitem').forEach(b=>b.onclick=()=>{document.querySelector('.nav').classList.remove('hasquery');$('search').value='';fillNav('');display(Number(b.dataset.i))})}
+/* Parcours d'exploration : pays -> marques triées A-Z -> fiche. */
+const CAT_SORTER=new Intl.Collator('fr',{sensitivity:'base',numeric:true});
+const CAT_GROUPS=ENTRIES.filter(e=>e.type==='country').map(e=>({country:e.country,entryIndex:ENTRIES.indexOf(e)}));
+CAT_GROUPS.sort((a,b)=>a.country.toUpperCase().includes('PRÉCISER')?1:b.country.toUpperCase().includes('PRÉCISER')?-1:CAT_SORTER.compare(a.country,b.country));
+const CAT_BRANDS=ENTRIES.map((entry,index)=>({entry,index})).filter(x=>x.entry.type==='brand');
+let catCountry=null;
+function catCountryOf(entry){return entry.country||'ORIGINE À PRÉCISER'}
+function catByCountry(country){return CAT_BRANDS.filter(x=>catCountryOf(x.entry)===country).sort((a,b)=>CAT_SORTER.compare(a.entry.title,b.entry.title))}
+function catFlag(country){const src=FLAGS[country];return src?`<img class="catFlag" alt="Drapeau ${esc(country)}" src="${src}"/>`:'<span class="catNoFlag">?</span>'}
+function catBrandRow(item,subtitle=false){return `<button type="button" class="catBrandBtn" data-entry-index="${item.index}"><span><span class="catBrandName">${esc(item.entry.title)}</span>${subtitle?`<span class="catBrandMeta">${esc(catCountryOf(item.entry))}</span>`:''}</span><span class="catArrow" aria-hidden="true">›</span></button>`}
+function catCountries(){
+ $('countryButtons').innerHTML=CAT_GROUPS.map(x=>{let n=catByCountry(x.country).length;return `<button type="button" class="catCountryBtn" data-country="${esc(x.country)}">${catFlag(x.country)}<span><span class="catCountryName">${esc(x.country)}</span><span class="catCountryMeta">${n} marque${n>1?'s':''}</span></span><span class="catArrow" aria-hidden="true">›</span></button>`}).join('');
+ $('countryButtons').querySelectorAll('[data-country]').forEach(b=>b.addEventListener('click',()=>catOpenCountry(b.dataset.country)));
+}
+function catShowCountries(){
+ document.body.classList.remove('view-editor');document.body.classList.add('view-browse');
+ $('catalogueCountries').hidden=false;$('catalogueBrands').hidden=true;
+ const q=$('globalBrandSearch').value.trim();catGlobalFilter(q);
+ window.scrollTo({top:0,behavior:'instant'});
+}
+function catLetterFor(title){const c=title.trim()[0]?.toLocaleUpperCase('fr')||'#';return /[A-ZÀ-ÖØ-Ý]/.test(c)?c:'#'}
+function catRenderBrands(){
+ const query=$('countryBrandSearch').value.trim().toLocaleLowerCase('fr');
+ const matches=catByCountry(catCountry).filter(x=>x.entry.title.toLocaleLowerCase('fr').includes(query));
+ const groups=new Map();for(const item of matches){const c=catLetterFor(item.entry.title);if(!groups.has(c))groups.set(c,[]);groups.get(c).push(item)}
+ const letters=[...groups.keys()];
+ $('letterNav').innerHTML=letters.map((c,j)=>`<button type="button" class="catLetter" data-letter="${j}">${esc(c)}</button>`).join('');
+ $('brandButtons').innerHTML=matches.length?letters.map((c,j)=>`<h3 class="catBrandLetter" id="cat-letter-${j}">${esc(c)}</h3>${groups.get(c).map(x=>catBrandRow(x)).join('')}`).join(''):'<p class="catEmpty">Aucune marque trouvée dans ce pays.</p>';
+ $('letterNav').querySelectorAll('[data-letter]').forEach(b=>b.addEventListener('click',()=>document.getElementById('cat-letter-'+b.dataset.letter)?.scrollIntoView({behavior:'smooth',block:'start'})));
+ $('brandButtons').querySelectorAll('[data-entry-index]').forEach(b=>b.addEventListener('click',()=>catOpenEditor(Number(b.dataset.entryIndex))));
+}
+function catOpenCountry(country){
+ if(!CAT_GROUPS.some(x=>x.country===country))return;
+ catCountry=country;
+ $('catalogueCountries').hidden=true;$('catalogueBrands').hidden=false;
+ $('catalogueCountryHeading').innerHTML=catFlag(country)+`<div><div class="catHeaderSelected">MARQUES DU PAYS</div><h2 class="catTitle">${esc(country)}</h2></div>`;
+ const n=catByCountry(country).length;$('countryBrandCount').textContent=`${n} marque${n>1?'s':''} classée${n>1?'s':''} par ordre alphabétique`;
+ $('countryBrandSearch').value='';catRenderBrands();
+ document.body.classList.remove('view-editor');document.body.classList.add('view-browse');
+ window.scrollTo({top:0,behavior:'instant'});
+}
+function catGlobalFilter(query){
+ const q=query.trim().toLocaleLowerCase('fr');
+ $('countryButtons').hidden=Boolean(q);$('globalSearchResults').hidden=!q;
+ if(!q){$('globalSearchResults').innerHTML='';return}
+ const hits=CAT_BRANDS.filter(x=>x.entry.title.toLocaleLowerCase('fr').includes(q)).sort((a,b)=>CAT_SORTER.compare(a.entry.title,b.entry.title));
+ $('globalSearchResults').innerHTML=hits.length?hits.map(x=>catBrandRow(x,true)).join(''):'<p class="catEmpty">Aucune marque trouvée.</p>';
+ $('globalSearchResults').querySelectorAll('[data-entry-index]').forEach(b=>b.addEventListener('click',()=>catOpenEditor(Number(b.dataset.entryIndex))));
+}
+async function catOpenEditor(index){
+ const e=ENTRIES[index];if(!e)return;
+ catCountry=catCountryOf(e);
+ await display(index);
+ document.body.classList.remove('view-browse');document.body.classList.add('view-editor');
+ catRefreshPager();window.scrollTo({top:0,behavior:'instant'});
+}
+function catRefreshPager(){
+ const indices=catByCountry(catCountry).map(x=>x.index),where=indices.indexOf(currentIndex);
+ const isBrand=where>=0;
+ $('pageCount').textContent=isBrand?`${where+1} / ${indices.length} · ${catCountry}`:`Présentation · ${catCountry}`;
+ $('prevBtn').disabled=!isBrand||where===0;
+ $('nextBtn').disabled=!isBrand||where===indices.length-1;
+}
+function catAdjacent(direction){const arr=catByCountry(catCountry).map(x=>x.index),p=arr.indexOf(currentIndex);if(p>=0&&p+direction>=0&&p+direction<arr.length)catOpenEditor(arr[p+direction])}
+async function catBackToCountry(){
+ if(savePending){clearTimeout(savePending);savePending=null;await saveSaved(ENTRIES[currentIndex].id,JSON.parse(JSON.stringify(currentRecord)))}
+ $('cropPanel').classList.remove('visible');catOpenCountry(catCountry);
+}
+$('backCountries').onclick=catShowCountries;
+$('globalBrandSearch').addEventListener('input',e=>catGlobalFilter(e.target.value));
+$('countryBrandSearch').addEventListener('input',catRenderBrands);
+$('countryIntro').onclick=()=>{const x=CAT_GROUPS.find(x=>x.country===catCountry);if(x)catOpenEditor(x.entryIndex)};
+$('openCatalogue').onclick=catBackToCountry;
+
 function compressPhoto(file){return new Promise((resolve,reject)=>{const src=URL.createObjectURL(file),im=new Image();im.onload=()=>{try{const maxDim=1800,scale=Math.min(1,maxDim/Math.max(im.naturalWidth,im.naturalHeight));const w=Math.max(1,Math.round(im.naturalWidth*scale)),h=Math.max(1,Math.round(im.naturalHeight*scale));const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(im,0,0,w,h);URL.revokeObjectURL(src);resolve(canvas.toDataURL('image/jpeg',.87))}catch(err){reject(err)}};im.onerror=()=>{URL.revokeObjectURL(src);reject(Error('Impossible de lire cette image'))};im.src=src})}
 $('uploadPhoto').onchange=async ev=>{const f=ev.target.files?.[0];if(!f||activeSlot<0)return;const selected=activeSlot,entryId=ENTRIES[currentIndex].id;status('Traitement de la photo…');try{const data=await compressPhoto(f);if(ENTRIES[currentIndex].id!==entryId)throw Error('La fiche a changé pendant l’import. Réessaie sur la bonne fiche.');currentRecord.photos[selected]=data;currentRecord.positions[selected]=[50,50];currentRecord.zoom[selected]=100;updateSlot(selected);$('sliderX').value=50;$('sliderY').value=50;$('sliderZoom').value=100;storeSoon();$('cropPanel').classList.add('visible')}catch(err){alert('Cette photo ne peut pas être lue : '+err.message)}ev.target.value=''};
 boxEls.forEach((box,i)=>box.onclick=()=>{activeSlot=i;$('cropTitle').textContent=`Photo ${i+1} · cadrage sans déformation`;$('sliderX').value=currentRecord.positions[i]?.[0]??50;$('sliderY').value=currentRecord.positions[i]?.[1]??50;$('sliderZoom').value=currentRecord.zoom[i]||100;$('cropPanel').classList.add('visible');if(!currentRecord.photos[i])$('uploadPhoto').click();else if(window.innerWidth<841)$('cropPanel').scrollIntoView({behavior:'smooth',block:'nearest'})});
 $('changePhoto').onclick=()=>{if(activeSlot>=0)$('uploadPhoto').click()};$('removePhoto').onclick=()=>{if(activeSlot<0)return;currentRecord.photos[activeSlot]=null;updateSlot(activeSlot);storeSoon();$('cropPanel').classList.remove('visible')};$('closeCrop').onclick=()=>$('cropPanel').classList.remove('visible');
 function adjustPhoto(){if(activeSlot<0)return;currentRecord.positions[activeSlot]=[Number($('sliderX').value),Number($('sliderY').value)];currentRecord.zoom[activeSlot]=Number($('sliderZoom').value);updateSlot(activeSlot);storeSoon()};$('sliderX').oninput=adjustPhoto;$('sliderY').oninput=adjustPhoto;$('sliderZoom').oninput=adjustPhoto;
 $('bio').addEventListener('input',()=>{currentRecord.bio=$('bio').innerText;storeSoon()});
-$('prevBtn').onclick=()=>display(currentIndex-1);$('nextBtn').onclick=()=>display(currentIndex+1);
+$('prevBtn').onclick=()=>catAdjacent(-1);$('nextBtn').onclick=()=>catAdjacent(1);
 $('search').oninput=ev=>{document.querySelector('.nav').classList.toggle('hasquery',Boolean(ev.target.value.trim()));fillNav(ev.target.value)};
 $('pagePick').onchange=ev=>display(Number(ev.target.value));
 $('printBtn').onclick=()=>{if(window.AtlasAndroid?.printPage){window.AtlasAndroid.printPage();status('Impression Android ouverte.');}else{status('Choisir « Enregistrer au format PDF » dans l’impression.');window.print()}};
 function download(name,content,type){if(window.AtlasAndroid?.saveText){window.AtlasAndroid.saveText(name,content,type);return}const blob=new Blob([content],{type}),url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove()},2000)}
 $('backupBtn').onclick=async()=>{status('Préparation de la sauvegarde…');const data={version:1,date:new Date().toISOString(),records:{}};for(let k=0;k<ENTRIES.length;k++){let e=ENTRIES[k],rec=e.id===ENTRIES[currentIndex].id?currentRecord:await readSaved(e.id);if(rec&&(rec.bio||rec.photos?.some(Boolean)))data.records[e.id]=rec}download('atlas-gantiers-sauvegarde.json',JSON.stringify(data),'application/json');status('Sauvegarde téléchargée. Conserve ce fichier avec tes photos.')};
 $('restoreBtn').onclick=()=>$('importFile').click();$('importFile').onchange=async ev=>{const f=ev.target.files?.[0];if(!f)return;try{const o=JSON.parse(await f.text());if(o.version!==1||typeof o.records!=='object')throw Error('Format incompatible');let n=0;for(const [key,v] of Object.entries(o.records)){if(ENTRIES.some(e=>e.id===key)){await saveSaved(key,normalizeRecord(v));n++}}await display(currentIndex);status(`${n} pages restaurées`)}catch(e){alert('Sauvegarde non valide : '+e.message)}ev.target.value=''};
-(async function start(){const ok=await initDB();$('pagePick').innerHTML=ENTRIES.map((e,i)=>`<option value="${i}">${esc(e.title)}</option>`).join('');fillNav();await display(ENTRIES.findIndex(e=>e.title.toLowerCase().includes('lucky khaki')));if(!ok)status('Attention : stockage automatique indisponible. Sauvegarde tes données avec le bouton dédié.')})();
+(async function start(){const ok=await initDB();$('pagePick').innerHTML=ENTRIES.map((e,i)=>`<option value="${i}">${esc(e.title)}</option>`).join('');catCountries();await display(ENTRIES.findIndex(e=>e.title.toLowerCase().includes('lucky khaki')));catShowCountries();if(!ok)status('Attention : stockage automatique indisponible. Sauvegarde tes données avec le bouton dédié.')})();
 </script>
 </body></html>

@@ -44,6 +44,8 @@ jobs:
         run: python3 qa/check_project.py
       - name: Tester le moteur de cadrage photo
         run: node qa/test_photo_crop.js
+      - name: Tester la navigation pays / marques
+        run: node qa/test_country_navigation.js
       - name: Compiler APK debug installable
         run: gradle --no-daemon --stacktrace :app:assembleDebug
       - name: Enregistrer APK Android

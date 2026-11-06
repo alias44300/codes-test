@@ -76,3 +76,16 @@ L'origine de FightCamp est canadienne (Montréal), distincte de l'implantation a
 - Classée sous Pérou (origine du fabricant et de Walls Total Sport, Dany Paredes Vilchez), avec le statut « probable » car la date et le lieu du lancement précis du nom Walls Fight Gear ne sont pas prouvés.
 - L'existence de l'entreprise italienne Walls Fight Gear Europe à Paderno Dugnano (Milan) figure dans les notes, sans confondre cette implantation et les racines péruviennes.
 - 363 marques, 45 rubriques pays, 21 origines toujours à préciser. Pas de doublon.
+
+
+## Vérification 1.0.10 : pays où les marques sont basées
+
+- 21 marques restaient non classées après l’audit du pays de naissance. Nouvelle recherche portant exclusivement sur l’implantation commerciale (et non les usines).
+
+- Six implantations documentées ou probables : Boxing is Passion (États-Unis et Mexique, siège commercial États-Unis), Gancho (États-Unis), Infinitude (Canada), King Fighter (Tchéquie), Leaders Fight Gear (Pakistan opérationnel, États-Unis également affichés sur LinkedIn : attribution prudente), Martial World of Japan (Japon).
+
+- Les six fiches affichent explicitement PAYS D’IMPLANTATION ; 15 autres marques restent à vérifier sans inventer de drapeau.
+
+- Sources intégrées dans chaque entrée ; 363 marques, 45 chapitres, ID des fiches et photos existantes conservés.
+
+- Alerte : les fiches précédemment classées par pays de création n’ont pas été modifiées.

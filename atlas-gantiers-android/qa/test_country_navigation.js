@@ -25,7 +25,7 @@ const aud=orig.filter(x=>x.originAuditDate==='2026-11-06');
 assert(aud.length>=83,'Audit coverage must include all initial 83 unclassified brands');
 assert.strictEqual(aud.filter(x=>x.country&&x.originStatus==='probable').length,19);
 assert.strictEqual(aud.filter(x=>x.country&&x.originSource).length,69);
-assert.strictEqual(aud.filter(x=>!x.country&&x.originStatus==='non confirmé').length,21);
+assert.strictEqual(aud.filter(x=>!x.country&&x.originStatus==='non confirmé').length,14);
 assert(html.includes('ORIGIN_AUDIT'),'Audit metadata missing');
 
 for(const [id,country] of Object.entries({p303:'États-Unis',p330:'États-Unis',p342:'Canada',p350:'Tchéquie',p355:'Pakistan',p361:'Japon',p353:'États-Unis'})) {

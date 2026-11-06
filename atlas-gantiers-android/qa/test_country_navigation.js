@@ -8,9 +8,9 @@ assert.strictEqual(countries.length,45);assert.strictEqual(brands.length,363);
 const codes=new Set(countries.map(x=>x.country));
 assert.strictEqual(codes.size,45);
 assert(brands.every(x=>codes.has(x.country||'ORIGINE À PRÉCISER')),'All brands must belong to a visible country');
-assert.strictEqual(brands.filter(x=>x.country===null).length,21);
+assert.strictEqual(brands.filter(x=>x.country===null).length,15);
 assert.strictEqual(brands.filter(x=>x.country==='Mexique').length,49);
-assert.strictEqual(brands.filter(x=>x.country==='Canada').length,6);
+assert.strictEqual(brands.filter(x=>x.country==='Canada').length,7);
 assert(countries.some(x=>x.country==='ORIGINE À PRÉCISER'));
 assert(countries.some(x=>x.country==='Autriche'));
 const walls=brands.filter(x=>x.title==='WALLS FIGHT GEAR');
@@ -23,10 +23,20 @@ for(const x of ['Arménie','Finlande','Suisse','Indonésie','Ouzbékistan','Irla
 const orig=brands.filter(x=>x.id.startsWith('p')&&Number(x.id.slice(1))>=289&&x.id!=='p417');
 const aud=orig.filter(x=>x.originAuditDate==='2026-11-06');
 assert(aud.length>=83,'Audit coverage must include all initial 83 unclassified brands');
-assert.strictEqual(aud.filter(x=>x.country&&x.originStatus==='probable').length,18);
-assert.strictEqual(aud.filter(x=>x.country&&x.originSource).length,62);
+assert.strictEqual(aud.filter(x=>x.country&&x.originStatus==='probable').length,19);
+assert.strictEqual(aud.filter(x=>x.country&&x.originSource).length,68);
 assert.strictEqual(aud.filter(x=>!x.country&&x.originStatus==='non confirmé').length,21);
 assert(html.includes('ORIGIN_AUDIT'),'Audit metadata missing');
+
+for(const [id,country] of Object.entries({p303:'États-Unis',p330:'États-Unis',p342:'Canada',p350:'Tchéquie',p355:'Pakistan',p361:'Japon'})) {
+ const record=brands.find(x=>x.id===id);
+ assert.strictEqual(record?.country,country,'Wrong operational country for '+id);
+ assert.strictEqual(record?.countryBasis,'implantation actuelle');
+ assert(record?.originSource,'Missing evidence for '+id);
+}
+assert.strictEqual(brands.filter(x=>x.baseAuditDate==='2026-11-06').length,6);
+assert(html.includes('PAYS D’IMPLANTATION'),'Current base must be visibly distinguished from founding country');
+
 assert.strictEqual(brands.find(x=>x.id==='p144')?.title,'TIGRAO');
 assert.strictEqual(brands.find(x=>x.id==='p137')?.title,'adidas SHORI (ADISHORI)');
 assert.strictEqual(brands.filter(x=>x.country==='Japon').length,9);
@@ -47,4 +57,4 @@ const sorter=new Intl.Collator('fr',{sensitivity:'base',numeric:true});
 const sorted=brands.filter(x=>x.country==='Mexique').map(x=>x.title).sort(sorter.compare);
 assert(sorted.indexOf('Campeón / Deportes Campeón')<sorted.indexOf('DC Boxing Mexico'));
 assert(sorted.indexOf('DC Boxing Mexico')<sorted.indexOf('Guzmán Boxing'));
-console.log('PASS: 45 countries, 363 brands, 21 unknown, Mexico 49, navigation JS valid');
+console.log('PASS: 45 countries, 363 brands, 15 unknown, Mexico 49, navigation JS valid');

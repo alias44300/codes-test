@@ -46,3 +46,9 @@ L'écran est fourni par une interface de lecture et édition embarquée dans une
 - Important : les APK debug de runners GitHub distincts peuvent être signés avec des certificats incompatibles, nécessitant une nouvelle installation et l'export préalable d'une sauvegarde.
 
 L'origine de FightCamp est canadienne (Montréal), distincte de l'implantation actuelle américaine. GOAT Boxing et XPRT sont nés aux Pays-Bas, Necalli au Mexique.
+
+## Correctif 1.0.6 — Japon
+
+- TIGRAO : intitulé unique, sans l'ajout « / Chiguron ». Le nom en japonais n'est pas une deuxième marque.
+- adidas SHORI (ADISHORI) : gamme fabriquée au Japon, identifiée distinctement de la marque mère adidas, d'origine allemande. La fiche existante a gardé son identifiant et ses photos.
+- Test de non-régression sur les neuf fiches du Japon et l'unicité de ces deux noms.

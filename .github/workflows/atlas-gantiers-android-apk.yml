@@ -26,10 +26,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Vérifier le SDK et installer Android 35
+      - name: Android SDK API 35
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          if [ -d "$ANDROID_HOME/platforms/android-35" ] && [ -d "$ANDROID_HOME/build-tools/35.0.0" ]; then
+            echo "SDK 35 deja disponible."
+          else
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+            if [ -z "$SDKMANAGER" ]; then echo "sdkmanager absent sous $ANDROID_HOME"; exit 1; fi
+            "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
+          fi
       - name: Gradle 8.10.2
         uses: gradle/actions/setup-gradle@v4
         with:

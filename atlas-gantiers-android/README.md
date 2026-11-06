@@ -1,6 +1,6 @@
 # Atlas des Gantiers — Projet Android
 
-Application Android **hors ligne**, alimentée par les 367 marques et 38 pays du livre.
+Application Android **hors ligne**, alimentée par les 362 marques uniques et 39 pays du livre.
 
 ## Fonctionnalités
 
@@ -25,7 +25,7 @@ Ou publier le projet sur **un dépôt GitHub personnel** avec Actions activées,
 
 ## Fonctionnement et données
 
-L'écran est fourni par une interface de lecture et édition embarquée dans une application native Android : `MainActivity` héberge un WebView **local** sans navigation réseau. Le catalogue est dans `app/src/main/assets/index.html` et contient 367 marques et 38 pages pays. Aucune photo n'est envoyée sur Internet. Les données sont supprimées si l'utilisateur désinstalle l'application sans exporter une sauvegarde.
+L'écran est fourni par une interface de lecture et édition embarquée dans une application native Android : `MainActivity` héberge un WebView **local** sans navigation réseau. Le catalogue est dans `app/src/main/assets/index.html` et contient 362 marques uniques et 39 pages pays. Aucune photo n'est envoyée sur Internet. Les données sont supprimées si l'utilisateur désinstalle l'application sans exporter une sauvegarde.
 
 **Limite** : le pincement tactile pour zoomer n'est pas implémenté : le cadrage est contrôlé par trois curseurs (horizontal, vertical, zoom). Le module PDF utilise l'imprimante Android pour une fiche à la fois, et non un export monobloc des 414 pages. Un vrai APK compilé n'a pas été testé dans cet environnement.
 
@@ -36,3 +36,11 @@ L'écran est fourni par une interface de lecture et édition embarquée dans une
 - Recherche mobile améliorée : les résultats sont désormais visibles et sélectionnables sur téléphone.
 - Les photos sont sauvegardées dans l'espace privé du WebView; sauvegarde Android cloud désactivée.
 - La compilation nécessite un environnement Android Studio ou CI GitHub Actions.
+
+## Version 1.0.4 : doublons et origines
+
+- Cinq doublons de marques fusionnés : Tanoshi, Leone Sport/Leone 1947, ARES, BBE et Leaders.
+- 30 fiches auditées et corrigées à partir de documents, sites de marques et registres ; pays de création utilisé, jamais simplement le pays de fabrication.
+- 93 fiches restent à origine indéterminée, sans drapeau inventé.
+- Données locales des anciennes fiches conservées sous leurs identifiants historiques et incluses dans les exports JSON ; toute photo manquant à la fiche principale est transférée vers l'espace libre si disponible.
+- Important : les APK debug de runners GitHub distincts peuvent être signés avec des certificats incompatibles, nécessitant une nouvelle installation et l'export préalable d'une sauvegarde.

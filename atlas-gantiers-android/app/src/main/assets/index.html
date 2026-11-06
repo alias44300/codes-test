@@ -165,7 +165,43 @@ function defaultRecord(){return {bio:'',photos:[null,null,null],positions:[[50,5
 function normalizeRecord(r){const x=defaultRecord();if(!r||typeof r!=='object')return x;x.bio=String(r.bio||'');if(Array.isArray(r.photos))x.photos=r.photos.slice(0,3).concat([null,null,null]).slice(0,3).map(v=>typeof v==='string'&&v.startsWith('data:image/')?v:null);if(Array.isArray(r.positions))x.positions=[0,1,2].map(i=>{const v=r.positions[i];return Array.isArray(v)?v.slice(0,2).map(n=>Number.isFinite(Number(n))?Math.max(0,Math.min(100,Number(n))):50):[50,50]});if(Array.isArray(r.zoom))x.zoom=[0,1,2].map(i=>Number.isFinite(Number(r.zoom[i]))?Math.max(100,Math.min(300,Number(r.zoom[i]))):100);return x}
 function storeSoon(){clearTimeout(savePending);const e=ENTRIES[currentIndex],v=JSON.parse(JSON.stringify(currentRecord));savePending=setTimeout(async()=>{const ok=await saveSaved(e.id,v);status(ok?'Modifications enregistrées sur cet appareil':'Enregistrement local limité. Utilise « Sauvegarder mes données ».')},360)}
 function flagFor(e){return FLAGS[e.country]||null}
-function updateSlot(n){let node=boxEls[n],im=node.querySelector('img');const url=currentRecord.photos[n];node.classList.toggle('hasphoto',Boolean(url));if(url){im.src=url;im.hidden=false;im.style.objectPosition=`${currentRecord.positions[n]?.[0]??50}% ${currentRecord.positions[n]?.[1]??50}%`;im.style.transform=`scale(${(currentRecord.zoom[n]||100)/100})`}else{im.removeAttribute('src');im.hidden=true}}
+// Draw each image in native proportions with a 12% overscan so X and Y always move.
+function computePhotoCrop(imageW,imageH,frameW,frameH,zoomPct,xPct,yPct){
+ if(!(imageW>0&&imageH>0&&frameW>0&&frameH>0))return null;
+ const zoom=Math.max(100,Math.min(300,Number(zoomPct)||100))/100;
+ const fit=Math.max(frameW/imageW,frameH/imageH)*1.12*zoom;
+ const width=imageW*fit,height=imageH*fit;
+ const panX=Math.max(0,width-frameW),panY=Math.max(0,height-frameH);
+ const fractionX=Math.max(0,Math.min(100,Number(xPct)||0))/100;
+ const fractionY=Math.max(0,Math.min(100,Number(yPct)||0))/100;
+ return {width,height,left:-panX*fractionX,top:-panY*fractionY};
+}
+function applyPhotoCrop(n){
+ const box=boxEls[n],im=box?.querySelector('img');
+ if(!box||!im||!currentRecord.photos[n]||!im.complete||!im.naturalWidth||!im.naturalHeight)return;
+ const pos=currentRecord.positions[n]||[50,50];
+ const c=computePhotoCrop(im.naturalWidth,im.naturalHeight,box.clientWidth,box.clientHeight,currentRecord.zoom[n],pos[0],pos[1]);
+ if(!c)return;
+ im.style.width=c.width+'px';im.style.height=c.height+'px';
+ im.style.left=c.left+'px';im.style.top=c.top+'px';
+ im.style.right='auto';im.style.bottom='auto';
+ im.style.objectFit='fill';im.style.objectPosition='center';im.style.transform='none';
+}
+function updateSlot(n){
+ const box=boxEls[n],im=box.querySelector('img'),url=currentRecord.photos[n];
+ box.classList.toggle('hasphoto',Boolean(url));
+ if(!url){im.onload=null;im.removeAttribute('src');im.hidden=true;return}
+ im.hidden=false;
+ im.onload=()=>applyPhotoCrop(n);
+ if(im.getAttribute('src')!==url)im.src=url;
+ applyPhotoCrop(n);
+}
+if(typeof ResizeObserver!=='undefined'){
+ const cropResizeObserver=new ResizeObserver(entries=>{
+  for(const e of entries){const index=boxEls.indexOf(e.target);if(index>=0)applyPhotoCrop(index)}
+ });
+ boxEls.forEach(box=>cropResizeObserver.observe(box));
+}else{window.addEventListener('resize',()=>boxEls.forEach((_,i)=>applyPhotoCrop(i)))}
 async function display(i){if(i<0||i>=ENTRIES.length)return;if(savePending){clearTimeout(savePending);savePending=null;await saveSaved(ENTRIES[currentIndex].id,JSON.parse(JSON.stringify(currentRecord)))}if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();currentIndex=i;activeSlot=-1;$('cropPanel').classList.remove('visible');const entry=ENTRIES[i];currentRecord=normalizeRecord(await readSaved(entry.id));$('bookpage').classList.toggle('countryPage',entry.type==='country');$('kicker').textContent=entry.type==='country'?'CHAPITRE · PAYS':'PROFIL DE MARQUE';$('name').textContent=entry.title;$('bioTitle').textContent=entry.type==='country'?'Introduction':'Biographie';$('originLabel').textContent=entry.type==='country'?'PAYS':'PAYS D’ORIGINE';$('bio').textContent=currentRecord.bio;let flag=flagFor(entry);$('flagImage').hidden=!flag;$('originUnknown').hidden=Boolean(flag);if(flag){$('flagImage').src=flag;$('flagbar').innerHTML='<img src="'+flag+'" alt="" />'}else{$('flagImage').removeAttribute('src');$('flagbar').innerHTML=''};boxEls.forEach((_,j)=>updateSlot(j));$('pagenum').textContent='PAGE '+entry.page;$('pageCount').textContent=`Fiche ${i+1} / ${ENTRIES.length} · page ${entry.page}`;$('pagePick').value=String(i);document.querySelectorAll('.navitem').forEach(b=>b.classList.toggle('current',Number(b.dataset.i)===i));status('');if(window.innerWidth<841)window.scrollTo({top:0,behavior:'instant'})}
 function fillNav(filter=''){const term=filter.toLocaleLowerCase('fr');const list=ENTRIES.map((e,i)=>({e,i})).filter(v=>v.e.title.toLocaleLowerCase('fr').includes(term)).slice(0,120);$('navlist').innerHTML=list.map(({e,i})=>`<button class="navitem ${e.type==='country'?'country':''}" data-i="${i}">${e.type==='country'?'◆ ':''}${esc(e.title)}</button>`).join('');document.querySelectorAll('.navitem').forEach(b=>b.onclick=()=>{document.querySelector('.nav').classList.remove('hasquery');$('search').value='';fillNav('');display(Number(b.dataset.i))})}
 function compressPhoto(file){return new Promise((resolve,reject)=>{const src=URL.createObjectURL(file),im=new Image();im.onload=()=>{try{const maxDim=1800,scale=Math.min(1,maxDim/Math.max(im.naturalWidth,im.naturalHeight));const w=Math.max(1,Math.round(im.naturalWidth*scale)),h=Math.max(1,Math.round(im.naturalHeight*scale));const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(im,0,0,w,h);URL.revokeObjectURL(src);resolve(canvas.toDataURL('image/jpeg',.87))}catch(err){reject(err)}};im.onerror=()=>{URL.revokeObjectURL(src);reject(Error('Impossible de lire cette image'))};im.src=src})}

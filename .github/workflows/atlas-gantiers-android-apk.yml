@@ -42,6 +42,8 @@ jobs:
           gradle-version: '8.10.2'
       - name: Vérifier 367 marques et 38 pays
         run: python3 qa/check_project.py
+      - name: Tester le moteur de cadrage photo
+        run: node qa/test_photo_crop.js
       - name: Compiler APK debug installable
         run: gradle --no-daemon --stacktrace :app:assembleDebug
       - name: Enregistrer APK Android

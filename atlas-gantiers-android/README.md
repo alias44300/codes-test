@@ -69,3 +69,10 @@ L'origine de FightCamp est canadienne (Montréal), distincte de l'implantation a
 - Nouvelle fiche unique avec trois espaces photo, biographie éditable et identification d'origine non confirmée. Aucune origine nationale n'est inventée : les recherches publiques retrouvent des homonymes ne correspondant pas à une marque de gants de boxe établie.
 - 363 marques ; 45 chapitres de pays dont « Origine à préciser » ; 22 marques sans pays vérifié.
 - IDs historiques inchangés : toutes les fiches et sauvegardes existantes restent compatibles.
+
+## Correctif 1.0.9 — WALLS FIGHT GEAR
+
+- La fiche erronée « WAIIS » devient « WALLS FIGHT GEAR » sans changement d'identifiant (p417) et sans perdre les données locales.
+- Classée sous Pérou (origine du fabricant et de Walls Total Sport, Dany Paredes Vilchez), avec le statut « probable » car la date et le lieu du lancement précis du nom Walls Fight Gear ne sont pas prouvés.
+- L'existence de l'entreprise italienne Walls Fight Gear Europe à Paderno Dugnano (Milan) figure dans les notes, sans confondre cette implantation et les racines péruviennes.
+- 363 marques, 45 rubriques pays, 21 origines toujours à préciser. Pas de doublon.

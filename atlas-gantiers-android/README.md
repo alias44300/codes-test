@@ -62,3 +62,10 @@ L'origine de FightCamp est canadienne (Montréal), distincte de l'implantation a
 - 362 marques conservées ; 45 chapitres pays, incluant « Origine à préciser ».
 - La navigation signale les pays « PROBABLES » directement sur les fiches.
 - Les photos et biographies sont stockées dans la mémoire privée de l'application. La variante côte à côte est recommandée ; importer une sauvegarde JSON de l'ancienne version pour transférer les données.
+
+## Correctif 1.0.8 : WAIIS
+
+- Ajout de WAIIS (avec exactement deux « i ») dans le répertoire alphabétique de la rubrique Origine à préciser.
+- Nouvelle fiche unique avec trois espaces photo, biographie éditable et identification d'origine non confirmée. Aucune origine nationale n'est inventée : les recherches publiques retrouvent des homonymes ne correspondant pas à une marque de gants de boxe établie.
+- 363 marques ; 45 chapitres de pays dont « Origine à préciser » ; 22 marques sans pays vérifié.
+- IDs historiques inchangés : toutes les fiches et sauvegardes existantes restent compatibles.

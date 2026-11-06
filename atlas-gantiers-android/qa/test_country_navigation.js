@@ -39,7 +39,7 @@ assert(html.includes('PAYS D’IMPLANTATION'),'Current base must be visibly dist
 
 assert.strictEqual(brands.find(x=>x.id==='p144')?.title,'TIGRAO');
 assert.strictEqual(brands.find(x=>x.id==='p137')?.title,'adidas SHORI (ADISHORI)');
-assert.strictEqual(brands.filter(x=>x.country==='Japon').length,9);
+assert.strictEqual(brands.filter(x=>x.country==='Japon').length,10);
 assert.strictEqual(brands.filter(x=>/TIGRAO|Chiguron/i.test(x.title)).length,1);
 assert.strictEqual(brands.filter(x=>/SHORI|ADISHORI/i.test(x.title)).length,1);
 assert.strictEqual(brands.find(x=>x.id==='p144')?.originSource,'https://ameblo.jp/tigrao/entry-12358444319.html');

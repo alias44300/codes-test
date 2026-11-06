@@ -13,6 +13,13 @@ assert.strictEqual(brands.filter(x=>x.country==='Mexique').length,48);
 assert.strictEqual(brands.filter(x=>x.country==='Canada').length,6);
 assert(countries.some(x=>x.country==='ORIGINE À PRÉCISER'));
 assert(countries.some(x=>x.country==='Autriche'));
+assert.strictEqual(brands.find(x=>x.id==='p144')?.title,'TIGRAO');
+assert.strictEqual(brands.find(x=>x.id==='p137')?.title,'adidas SHORI (ADISHORI)');
+assert.strictEqual(brands.filter(x=>x.country==='Japon').length,9);
+assert.strictEqual(brands.filter(x=>/TIGRAO|Chiguron/i.test(x.title)).length,1);
+assert.strictEqual(brands.filter(x=>/SHORI|ADISHORI/i.test(x.title)).length,1);
+assert.strictEqual(brands.find(x=>x.id==='p144')?.originSource,'https://ameblo.jp/tigrao/entry-12358444319.html');
+
 for (const id of ['p46','p132','p295','p300','p354']) assert(!brands.some(x=>x.id===id), 'duplicate brand '+id);
 for (const [id,country] of Object.entries({p110:'Royaume-Uni',p251:'États-Unis',p296:'Royaume-Uni',p299:'Royaume-Uni',p301:'États-Unis',p308:'Espagne',p339:'Canada',p347:'Australie',p370:'Autriche',p378:'Royaume-Uni',p402:'France',p327:'Canada',p332:'Pays-Bas',p364:'Mexique',p408:'Pays-Bas',p391:'États-Unis'})) assert.strictEqual(brands.find(x=>x.id===id)?.country,country);
 assert(html.includes('LEGACY_MERGES')&&html.includes('migrateLegacyRecords'),'preserve legacy images and biographies');

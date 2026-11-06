@@ -9,10 +9,10 @@ data_line=next(line for line in asset.splitlines() if line.startswith('const DAT
 assert data_line.endswith(';')
 data=json.loads(data_line.removeprefix('const DATA=').removesuffix(';'))
 entries=data['entries'];flags=data['flags']
-assert len(entries)==407,len(entries)
-assert sum(e['type']=='brand' for e in entries)==362
+assert len(entries)==408,len(entries)
+assert sum(e['type']=='brand' for e in entries)==363
 assert sum(e['type']=='country' for e in entries)==45
-assert len(set(e['id'] for e in entries))==407,'duplicate IDs'
+assert len(set(e['id'] for e in entries))==408,'duplicate IDs'
 assert all(e['title'].strip() for e in entries)
 assert len(flags)>20
 assert 'object-fit:cover' in asset
@@ -28,5 +28,5 @@ assert app.attrib.get(ns+'allowBackup')=='false'
 assert not manifest.getroot().findall('uses-permission'), 'Unexpected Android permissions'
 assert (root/'app/src/main/java/fr/atlasgantiers/app/MainActivity.java').exists()
 assert (root/'.github/workflows/build-android.yml').exists() or (root.parent/'.github/workflows/atlas-gantiers-android-apk.yml').exists()
-print('PASS static data: 362 marques + 45 pays = 407 entries; ids unique; flags present')
+print('PASS static data: 363 marques + 45 pays = 408 entries; ids unique; flags present')
 print('PASS gallery placeholder/crop/zoom/fade/backup controls, manifest no permissions, allowBackup=false')
